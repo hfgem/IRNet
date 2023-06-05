@@ -1,10 +1,11 @@
-function [V_m, G_sra, G_syn_E_E, G_syn_I_E, G_syn_E_I, G_syn_I_I, conn_changes] = ir_net_calculator(...
-    parameters, seed, network, V_m)
+function [V_m, conns] = ir_net_calculator_light(parameters, seed, network, V_m)
     %_________
     %ABOUT: This function uses the leaky integrate-and-fire model of 
     %neuronal firing to calculate the trajectory of membrane potentials,
     %currents, etc... that take place in a particular network with a 
-    %particular set of parameters and initialization.
+    %particular set of parameters and initialization. It is the "light"
+    %implementation because it uses less memory to run and only stores
+    %membrane potential.
     %
     %INPUTS:
     %   parameters = a structure that contains a majority of LIF neuron
@@ -67,16 +68,14 @@ function [V_m, G_sra, G_syn_E_E, G_syn_I_E, G_syn_E_I, G_syn_I_I, conn_changes] 
     rng(seed)
     
     %Create Storage Variables
-    G_sra = zeros(parameters.n,parameters.t_steps+1); %refractory conductance for each neuron at each timestep (S)
-    G_syn_I_E = zeros(parameters.n,parameters.t_steps+1); %conductance for pre-inhib to post-excit (S)
-    G_syn_E_E = zeros(parameters.n,parameters.t_steps+1); %conductance for pre-excit to post-excit (S)
-    G_syn_I_I = zeros(parameters.n,parameters.t_steps+1); %conductance for pre-inhib to post-inhib (S)
-    G_syn_E_I = zeros(parameters.n,parameters.t_steps+1); %conductance for pre-excit to post-inhib (S)
+    G_sra = zeros(parameters.n,1); %refractory conductance for each neuron at each timestep (S)
+    G_syn_I_E = zeros(parameters.n,1); %conductance for pre-inhib to post-excit (S)
+    G_syn_E_E = zeros(parameters.n,1); %conductance for pre-excit to post-excit (S)
+    G_syn_I_I = zeros(parameters.n,1); %conductance for pre-inhib to post-inhib (S)
+    G_syn_E_I = zeros(parameters.n,1); %conductance for pre-excit to post-inhib (S)
 
     %Copy connectivity matrix in case of stdp changes
     conns = network.conns; %separately update a connectivity matrix
-    conn_changes = zeros(parameters.n,parameters.n,parameters.t_steps+1); %save connectivity changes
-    conn_changes(:,:,1) = conns;
     
     %Binary indices of excitatory and inhibitory neurons
     E_bin = zeros(parameters.n,1);
@@ -110,37 +109,37 @@ function [V_m, G_sra, G_syn_E_E, G_syn_I_E, G_syn_E_I, G_syn_I_I, conn_changes] 
         spikers_E = spikers(ismember(spikers,network.E_indices)); %indices of excitatory spiking presynaptic neurons
         %______________________________________
         %Adjust parameters dependent on spiking
-        G_sra(spikers,t) = G_sra(spikers,t) + parameters.del_G_sra; %set SRA conductance values
+        G_sra(spikers) = G_sra(spikers) + parameters.del_G_sra; %set SRA conductance values
         %Synaptic conductance is stepped for postsynaptic neurons
         %   dependent on the number of presynaptic connections, and the
         %   current will depend on the presynaptic neuron type (E_syn_I and E_syn_E)
         incoming_conn_E = sum(conns(spikers_E,:),1)'; %post-synaptic neuron E input counts
         incoming_conn_I = sum(conns(spikers_I,:),1)'; %post-synaptic neuron I input counts
-        G_syn_I_E(:,t) = G_syn_I_E(:,t) + parameters.del_G_syn_I_E*incoming_conn_I.*E_bin;
-        G_syn_E_E(:,t) = G_syn_E_E(:,t) + parameters.del_G_syn_E_E*incoming_conn_E.*E_bin;
-        G_syn_I_I(:,t) = G_syn_I_I(:,t) + parameters.del_G_syn_I_I*incoming_conn_I.*I_bin;
-        G_syn_E_I(:,t) = G_syn_E_I(:,t) + parameters.del_G_syn_E_I*incoming_conn_E.*I_bin;
+        G_syn_I_E = G_syn_I_E + parameters.del_G_syn_I_E*incoming_conn_I.*E_bin;
+        G_syn_E_E = G_syn_E_E + parameters.del_G_syn_E_E*incoming_conn_E.*E_bin;
+        G_syn_I_I = G_syn_I_I + parameters.del_G_syn_I_I*incoming_conn_I.*I_bin;
+        G_syn_E_I = G_syn_E_I + parameters.del_G_syn_E_I*incoming_conn_E.*I_bin;
         %______________________________________
         %Calculate membrane potential using integration method
-        V_ss = ( parameters.G_in(:,t).*parameters.syn_E + G_syn_E_E(:,t).*parameters.syn_E + ...
-            G_syn_E_I(:,t).*parameters.syn_E + G_syn_I_I(:,t).*parameters.syn_I + ...
-            G_syn_I_E(:,t).*parameters.syn_I + parameters.G_L*parameters.E_L + ...
-            G_sra(:,t)*parameters.E_K )./(parameters.G_L + G_sra(:,t) + G_syn_E_E(:,t) + ...
-            G_syn_E_I(:,t) + G_syn_I_I(:,t) + G_syn_I_E(:,t) + parameters.G_in(:,t));
-        taueff = parameters.C_m./(parameters.G_L + G_sra(:,t) + G_syn_E_E(:,t) + ...
-            G_syn_E_I(:,t) + G_syn_I_I(:,t) + G_syn_I_E(:,t) + parameters.G_in(:,t));
+        V_ss = ( parameters.G_in(:,t).*parameters.syn_E + G_syn_E_E.*parameters.syn_E + ...
+            G_syn_E_I.*parameters.syn_E + G_syn_I_I.*parameters.syn_I + ...
+            G_syn_I_E.*parameters.syn_I + parameters.G_L*parameters.E_L + ...
+            G_sra*parameters.E_K )./(parameters.G_L + G_sra + G_syn_E_E + ...
+            G_syn_E_I + G_syn_I_I + G_syn_I_E + parameters.G_in(:,t));
+        taueff = parameters.C_m./(parameters.G_L + G_sra + G_syn_E_E + ...
+            G_syn_E_I + G_syn_I_I + G_syn_I_E + parameters.G_in(:,t));
         V_m(:,t+1) = V_ss + (V_m(:,t) - V_ss).*exp(-parameters.dt ./taueff) + ...
             randn([parameters.n,1])*parameters.V_m_noise*sqrt(parameters.dt); %the randn portion can be removed if you'd prefer no noise
         V_m(spikers,t+1) = parameters.V_reset; %update those that just spiked to reset
         %______________________________________
         %Update next step conductances
-        G_sra(:,t+1) = G_sra(:,t)*exp(-parameters.dt/parameters.tau_sra); %Spike rate adaptation conductance
+        G_sra = G_sra*exp(-parameters.dt/parameters.tau_sra); %Spike rate adaptation conductance
         %Synaptic conductance updated for each postsynaptic neuron by
         %incoming connection type
-        G_syn_E_E(:,t+1) = G_syn_E_E(:,t).*exp(-parameters.dt/parameters.tau_syn_E); %excitatory conductance update
-        G_syn_I_E(:,t+1) = G_syn_I_E(:,t).*exp(-parameters.dt/parameters.tau_syn_I); %excitatory conductance update
-        G_syn_I_I(:,t+1) = G_syn_I_I(:,t).*exp(-parameters.dt/parameters.tau_syn_I); %inhibitory conductance update
-        G_syn_E_I(:,t+1) = G_syn_E_I(:,t).*exp(-parameters.dt/parameters.tau_syn_E); %inhibitory conductance update
+        G_syn_E_E = G_syn_E_E.*exp(-parameters.dt/parameters.tau_syn_E); %excitatory conductance update
+        G_syn_I_E = G_syn_I_E.*exp(-parameters.dt/parameters.tau_syn_I); %excitatory conductance update
+        G_syn_I_I = G_syn_I_I.*exp(-parameters.dt/parameters.tau_syn_I); %inhibitory conductance update
+        G_syn_E_I = G_syn_E_I.*exp(-parameters.dt/parameters.tau_syn_E); %inhibitory conductance update
         %______________________________________
         %Update which neurons spiked
         ever_spiked = t_spike > 0;
@@ -176,6 +175,4 @@ function [V_m, G_sra, G_syn_E_E, G_syn_I_E, G_syn_E_I, G_syn_I_I, conn_changes] 
         adjustment_val = (1/2)*std_del_conn_pre*sqrt(2*pi)*(2/sqrt(pi))*exp(3/sqrt(2))^2; 
         del_conn_pre_I = (I_pre_spike_strength/adjustment_val).*exp(-1*(t_curr-I_pre_spike_timer).^2./(2*(std_del_conn_pre).^2));
         conns = conns + del_conn_pre_I;
-        %Save new connectivity matrix
-        conn_changes(:,:,t+1) = conns;
     end
