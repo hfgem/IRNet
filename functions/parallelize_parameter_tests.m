@@ -54,7 +54,6 @@ function [burst_results] = parallelize_parameter_tests(parameters,...
             %conns_var = struct;
         end
         for ithTest = 1:parameters.nTrials       
-            disp('Simulation ' + string(ithNet))
             %Create input conductance variable
             if parameters.inputType == 0
                 % Conductance input
