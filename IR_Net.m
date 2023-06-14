@@ -48,7 +48,7 @@ parameters.mnc = 2; % mean number of clusters each neuron is a member of
 % Time
 parameters.dt = 1*10^(-3); %timestep (s)
 parameters.init_period = 10; %initialization time (s)
-parameters.sim_period = 270; %simulation time (s)
+parameters.sim_period = 290; %simulation time (s)
 
 % Basic model parameters
 % tau_E ~= 10 ms from direct data, DOI: 10.1126/science.aaf1836
@@ -96,7 +96,7 @@ parameters.depression_gain = 1*10^(-2); %amount to decrease connectivity (percen
 parameters.inputType = 0; % 0 = randn(), 1 = poisson, 2 = theta + randn()
 if parameters.inputType == 0
     % Conductance input
-    parameters.G_std = 8*10^-9; % STD of the input conductance G_in, if using randn()
+    parameters.G_std = 8.5*10^-9; % STD of the input conductance G_in, if using randn()
     parameters.G_mean = 0.7*10^-9; % mean of the input conductance G_in, if using randn()
 elseif parameters.inputType == 1
     % Poisson input
@@ -118,7 +118,7 @@ parameters.p_I = 0.5; % probability of an I cell connecting to any other cell
 
 %Set burst selection parameters
 parameters.burst_n_min = 0.05; %Fraction of neurons that must be active in a burst for it to count
-parameters.burst_t_min = 50*10^(-3); %Seconds that must pass without activity to separate bursts
+parameters.burst_t_min = 10*10^(-3); %Seconds that must pass without activity to separate bursts
 parameters.num_burst_avg = 5; %Number of bursts to average together for visualizations
 parameters.num_rast_to_plot = 25; %Number of burst rasters to plot
 
