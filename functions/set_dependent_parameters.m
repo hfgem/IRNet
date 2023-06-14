@@ -2,6 +2,9 @@ function parameters = set_dependent_parameters(parameters)
 % Takes in "parameters" structure of initialized independent parameters and
 % sets (or updates) all dependent parameters.
 
+%Time constants
+parameters.t_max = parameters.init_period + parameters.sim_period; %Total simulation time in (s)
+
 %Interaction constants
 parameters.t_steps = parameters.t_max/parameters.dt; %number of timesteps in simulation
 parameters.syn_E = parameters.V_syn_E; %vector of the synaptic reversal potential for excitatory connections

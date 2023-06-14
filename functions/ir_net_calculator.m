@@ -84,38 +84,35 @@ function [V_m, G_sra, G_syn_E_E, G_syn_I_E, G_syn_E_I, G_syn_I_I, conn_changes] 
     I_bin = zeros(parameters.n,1);
     I_bin(network.I_indices) = 1;
     
-    %Storage variables for delayed I-E connection updates
-    I_pre_spike_timer = zeros(parameters.n,parameters.n); %Stores the sigmoid delay values, which are updated following I-E spikes
-    I_pre_spike_strength = zeros(parameters.n,parameters.n); %Stores the sigmoid strengths, which are updated following I-E spikes
-    I_pre_spike_delay = parameters.I_E_delay; %Time to delay the sigmoid curve for increased I-E connections
-    
+    %Store a maximum connection strength matrix
+    if strcmp(parameters.stdp_type,'growth')
+        conns_max = conns;
+        conns_max(network.E_indices,:) = conns_max(network.E_indices,:)*parameters.E_max;
+        conns_max(network.I_indices,:) = conns_max(network.I_indices,:)*parameters.I_max; %#ok<*NASGU>
+    end
     %Variables for STDP
     t_spike = zeros(parameters.n,1); %vector to store the time of each neuron's last spike, for use in STDP
     t_stdp = parameters.tau_stdp;
-    pre_strength = parameters.potentiation_gain;
+    pre_strength_E = parameters.potentiation_gain_E;
+    pre_strength_I = parameters.potentiation_gain_I;
     post_strength = parameters.depression_gain;
     
     %Run through each timestep and calculate
     for t = 1:parameters.t_steps
         t_curr = t*parameters.dt;
-        %update I-E delay values
-        %I_pre_spike_timer = I_pre_spike_timer - parameters.dt;
-        I_pre_spike_timer(I_pre_spike_timer < 0) = 0; %set lower bound to 0
-        I_pre_spike_strength = I_pre_spike_strength.*exp(-parameters.dt/(2*I_pre_spike_delay)); %decay the spike strength
         %check for spiking neurons and postsynaptic and separate into E and I
         spikers_bin = V_m(:,t) >= parameters.V_th; %binary vector
-        spikers = find(spikers_bin); %indices
-        t_spike(spikers) = t_curr;
-        spikers_I = spikers(ismember(spikers,network.I_indices)); %indices of inhibitory spiking presynaptic neurons
-        spikers_E = spikers(ismember(spikers,network.E_indices)); %indices of excitatory spiking presynaptic neurons
+        t_spike(spikers_bin) = t_curr;
+        spikers_I = spikers_bin.*I_bin; %binary column vector of spiking inhibitory neurons
+        spikers_E = spikers_bin.*E_bin; %binary column vector of spiking excitatory neurons
         %______________________________________
         %Adjust parameters dependent on spiking
-        G_sra(spikers,t) = G_sra(spikers,t) + parameters.del_G_sra; %set SRA conductance values
+        G_sra(spikers_bin,t) = G_sra(spikers_bin,t) + parameters.del_G_sra; %set SRA conductance values
         %Synaptic conductance is stepped for postsynaptic neurons
         %   dependent on the number of presynaptic connections, and the
         %   current will depend on the presynaptic neuron type (E_syn_I and E_syn_E)
-        incoming_conn_E = sum(conns(spikers_E,:),1)'; %post-synaptic neuron E input counts
-        incoming_conn_I = sum(conns(spikers_I,:),1)'; %post-synaptic neuron I input counts
+        incoming_conn_E = sum(conns.*(spikers_E*ones(1,parameters.n)),1)'; %post-synaptic neuron E input counts
+        incoming_conn_I = sum(conns.*(spikers_I*ones(1,parameters.n)),1)'; %post-synaptic neuron I input counts
         G_syn_I_E(:,t) = G_syn_I_E(:,t) + parameters.del_G_syn_I_E*incoming_conn_I.*E_bin;
         G_syn_E_E(:,t) = G_syn_E_E(:,t) + parameters.del_G_syn_E_E*incoming_conn_E.*E_bin;
         G_syn_I_I(:,t) = G_syn_I_I(:,t) + parameters.del_G_syn_I_I*incoming_conn_I.*I_bin;
@@ -131,7 +128,7 @@ function [V_m, G_sra, G_syn_E_E, G_syn_I_E, G_syn_E_I, G_syn_I_I, conn_changes] 
             G_syn_E_I(:,t) + G_syn_I_I(:,t) + G_syn_I_E(:,t) + parameters.G_in(:,t));
         V_m(:,t+1) = V_ss + (V_m(:,t) - V_ss).*exp(-parameters.dt ./taueff) + ...
             randn([parameters.n,1])*parameters.V_m_noise*sqrt(parameters.dt); %the randn portion can be removed if you'd prefer no noise
-        V_m(spikers,t+1) = parameters.V_reset; %update those that just spiked to reset
+        V_m(spikers_bin,t+1) = parameters.V_reset; %update those that just spiked to reset
         %______________________________________
         %Update next step conductances
         G_sra(:,t+1) = G_sra(:,t)*exp(-parameters.dt/parameters.tau_sra); %Spike rate adaptation conductance
@@ -142,40 +139,45 @@ function [V_m, G_sra, G_syn_E_E, G_syn_I_E, G_syn_E_I, G_syn_I_I, conn_changes] 
         G_syn_I_I(:,t+1) = G_syn_I_I(:,t).*exp(-parameters.dt/parameters.tau_syn_I); %inhibitory conductance update
         G_syn_E_I(:,t+1) = G_syn_E_I(:,t).*exp(-parameters.dt/parameters.tau_syn_E); %inhibitory conductance update
         %______________________________________
+        %Update connection strengths with decay
+        if strcmp(parameters.stdp_type,'decay')
+            conns(network.E_indices,:) = conns(network.E_indices,:)*exp(-parameters.dt/parameters.tau_E_decay);
+            conns(network.I_indices,:) = conns(network.I_indices,:)*exp(-parameters.dt/parameters.tau_I_decay);
+        end
+        %______________________________________
         %Update which neurons spiked
         ever_spiked = t_spike > 0;
-        ever_spiked_ind = find(ever_spiked);
-        E_ever_spiked = intersect(ever_spiked_ind,network.E_indices);
-        I_ever_spiked = intersect(ever_spiked_ind,network.I_indices);
-        pre_syn_n_E = conns(E_ever_spiked,spikers) > 0; %binary matrix pre-E-n x spikers
-        pre_syn_n_I = conns(I_ever_spiked,spikers) > 0; %binary matrix pre-I-n x spikers
-        post_syn_n = conns(spikers,ever_spiked_ind) > 0; %binary matrix spikers x post-n
+        E_ever_spiked = ever_spiked.*E_bin; %Binary vector of excitatory ever spiked
+        I_ever_spiked = ever_spiked.*I_bin; %Binary vector of inhibitory ever spiked
+        pre_syn_n_E = (conns.*(E_ever_spiked*spikers_bin')) > 0; %binary matrix pre-E-n x spikers
+        pre_syn_n_I = (conns.*(I_ever_spiked*spikers_bin')) > 0; %binary matrix pre-I-n x spikers
+        post_syn_n = (conns.*(spikers_bin*ever_spiked')) > 0; %binary matrix spikers x post-n
         
-        pre_syn_t_E = t_spike(E_ever_spiked).*pre_syn_n_E; %spike times of pre-synaptic excitatory neurons (0 where not pre-synaptic neuron)
-        pre_syn_t_I = t_spike(I_ever_spiked).*pre_syn_n_I; %spike times of pre-synaptic inhibitory neurons
-        post_syn_t = post_syn_n.*t_spike(ever_spiked_ind)'; %spike times of all post-synaptic neurons
+        pre_syn_t_E = t_spike.*pre_syn_n_E; %spike times of pre-synaptic excitatory neurons (0 where not pre-synaptic neuron)
+        pre_syn_t_I = t_spike.*pre_syn_n_I; %spike times of pre-synaptic inhibitory neurons
+        post_syn_t = post_syn_n.*t_spike'; %spike times of all post-synaptic neurons
         
         t_diff_pre_E = t_curr*pre_syn_n_E - pre_syn_t_E; %time diff between pre-synaptic excitatory neurons and current
         t_diff_pre_I = t_curr*pre_syn_n_I - pre_syn_t_I; %time diff between pre-synaptic inhibitory neurons and current
         t_diff_post = t_curr*post_syn_n - post_syn_t; %time diff between post-synaptic and current
-        
-        del_conn_pre_E = pre_strength*exp(-t_diff_pre_E/t_stdp).*pre_syn_n_E;
-        del_conn_post = post_strength*exp(-t_diff_post/t_stdp).*post_syn_n;
-        
-        conns(E_ever_spiked,spikers) = conns(E_ever_spiked,spikers) + del_conn_pre_E; %enhance connections to pre-synaptic neurons that spike before
-        conns(spikers,ever_spiked_ind) = conns(spikers,ever_spiked_ind) - del_conn_post; %weaken connections to post-synaptic neurons that spike before
-        
-        %I-all strengthening is performed on a delay following a sigmoid.
-        %The height of the sigmoid is influenced by the STDP strength of
-        %the pre-post pairing
-        pre_I_strength = pre_strength*exp(-t_diff_pre_I/t_stdp).*pre_syn_n_I;
-        I_pre_spike_strength(I_ever_spiked,spikers) = I_pre_spike_strength(I_ever_spiked,spikers) + pre_I_strength;
-        I_pre_spike_timer(I_ever_spiked,spikers) = t_curr + I_pre_spike_delay;
-        %Update all pre-I connections based on their info
-        std_del_conn_pre = I_pre_spike_delay/pi;
-        adjustment_val = (1/2)*std_del_conn_pre*sqrt(2*pi)*(2/sqrt(pi))*exp(3/sqrt(2))^2; 
-        del_conn_pre_I = (I_pre_spike_strength/adjustment_val).*exp(-1*(t_curr-I_pre_spike_timer).^2./(2*(std_del_conn_pre).^2));
-        conns = conns + del_conn_pre_I;
+        if strcmp(parameters.stdp_type,'growth')
+            conn_strength_E_pre = (conns_max.*pre_syn_n_E - conns.*pre_syn_n_E)./(conns_max.*pre_syn_n_E);
+            conn_strength_E_pre(isnan(conn_strength_E_pre)) = 0;
+            conn_strength_I_pre = (conns_max.*pre_syn_n_I - conns.*pre_syn_n_I)./(conns_max.*pre_syn_n_I);
+            conn_strength_I_pre(isnan(conn_strength_I_pre)) = 0;
+            conn_strength_post = (conns_max.*post_syn_n - conns.*post_syn_n)./(conns_max.*post_syn_n);
+            conn_strength_post(isnan(conn_strength_post)) = 0;
+            del_conn_pre_E = (pre_strength_E/100)*(conn_strength_E_pre).*exp(-t_diff_pre_E/t_stdp).*pre_syn_n_E;
+            del_conn_pre_I = (pre_strength_I/100)*(conn_strength_I_pre).*exp(-t_diff_pre_I/t_stdp).*pre_syn_n_I;
+            del_conn_post = (post_strength/100)*(conn_strength_post).*exp(-t_diff_post/t_stdp).*post_syn_n;
+        elseif strcmp(parameters.stdp_type,'decay')
+            del_conn_pre_E = (pre_strength_E/100)*exp(-t_diff_pre_E/t_stdp).*pre_syn_n_E;
+            del_conn_pre_I = (pre_strength_I/100)*exp(-t_diff_pre_I/t_stdp).*pre_syn_n_I;
+            del_conn_post = (post_strength/100)*exp(-t_diff_post/t_stdp).*post_syn_n;
+        end
+        %Store changes
+        conns = conns + del_conn_pre_E + del_conn_pre_I - del_conn_post; %update connections
+ 
         %Save new connectivity matrix
         conn_changes(:,:,t+1) = conns;
     end
