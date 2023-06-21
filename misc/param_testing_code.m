@@ -42,7 +42,7 @@ variedParam(2).range = linspace(450*10^(-12), 1050*10^(-12), test_n); % set of v
 %}
 
 %Number of values to test for each parameter
-test_n = 2;
+test_n = 10;
 parameters.nNets = 1; %Number of network initializations
 parameters.nTrials = 1; %Number of input initializations
 
@@ -55,8 +55,8 @@ variedParam(2).range = linspace(0,1*10^(-9),test_n);
 
 %Relevant parameters to above varied ones + simulation
 parameters.dt = 1*10^(-3); %timestep (s)
-parameters.init_period = 1; %initialization time (s)
-parameters.sim_period = 2; %simulation time (s)
+parameters.init_period = 30; %initialization time (s)
+parameters.sim_period = 270; %simulation time (s)
 parameters.inputType = 2; % 0 = randn(), 1 = poisson, 2 = theta + pink noise
 parameters.t_freq = 2; %SWR frequency - Nitzan et al. 2022
 

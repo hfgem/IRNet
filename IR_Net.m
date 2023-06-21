@@ -47,8 +47,8 @@ parameters.mnc = 2; % mean number of clusters each neuron is a member of
 
 % Time
 parameters.dt = 1*10^(-3); %timestep (s)
-parameters.init_period = 2; %initialization time (s)
-parameters.sim_period = 10; %simulation time (s)
+parameters.init_period = 30; %initialization time (s)
+parameters.sim_period = 270; %simulation time (s)
 
 % Basic model parameters
 % tau_E ~= 10 ms from direct data, DOI: 10.1126/science.aaf1836
