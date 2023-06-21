@@ -53,8 +53,6 @@ function plot_burst_stats(parameters,bursts,ithNet,ithTest,net_save_path)
     title(['Average Burst Size ', 'for ' + string(parameters.num_burst_avg) + ' Bursts'])
     subplot(3,2,6)
     plot(1:num_chunks,burst_avg_ibi)
-    y_tick_vals = yticks();
-    yticklabels(y_tick_vals*parameters.dt)
     ylabel('Avg Time (s)')
     title(['Average Burst IBI ','for ' + string(parameters.num_burst_avg) + ' Bursts'])
     sgtitle(strcat('Network ',string(ithNet),', Simulation ',string(ithTest)))

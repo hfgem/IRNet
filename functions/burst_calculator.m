@@ -22,9 +22,9 @@ function bursts = burst_calculator(parameters,spike_raster,net_save_path,ithNet,
             bursts(end).num_neur = num_neur;
             bursts(end).length = parameters.dt*(bursts(end).times(2) - bursts(end).times(1));
             try
-                bursts(end).ibi = bursts(end).times(1) - bursts(end-1).times(2); %Time since last burst
+                bursts(end).ibi = (bursts(end).times(1) - bursts(end-1).times(2))*parameters.dt; %Time since last burst in seconds
             catch %If first burst saved
-                bursts(end).ibi = bursts(end).times(1);
+                bursts(end).ibi = bursts(end).times(1)*parameters.dt;
             end
         end
         %Reset the start ind for the next burst

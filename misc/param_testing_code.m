@@ -122,7 +122,8 @@ for p_i = 1:size(pairs,1)
     %Avg Burst Size (# Neurons)
     s1 = subplot(2,2,1);
     imagesc(avg_neur_per_burst_results_mat)
-    colorbar()
+    c1 = colorbar();
+    c1.Label.String = 'Avg Number of Neurons';
     yticks(1:test_n)
     yticklabels([variedParam(pair_ind_1).range])
     ylabel(param_name_1)
@@ -133,7 +134,8 @@ for p_i = 1:size(pairs,1)
     %Avg Burst Length
     s2 = subplot(2,2,2);
     imagesc(avg_length_of_burst_results_mat)
-    colorbar()
+    c2 = colorbar();
+    c2.Label.String = 'Avg Length of Burst (s)';
     yticks(1:test_n)
     yticklabels([variedParam(pair_ind_1).range])
     ylabel(param_name_1)
@@ -144,14 +146,15 @@ for p_i = 1:size(pairs,1)
     %Avg IBI
     s3 = subplot(2,2,3);
     imagesc(flipud(avg_ibi_of_burst_results_mat))
-    colorbar()
+    c3 = colorbar();
+    c3.Label.String = 'Avg IBI (s)';
     yticks(1:test_n)
     yticklabels([variedParam(pair_ind_1).range])
     ylabel(param_name_1)
     xticks(1:test_n)
     xticklabels([variedParam(pair_ind_2).range])
     xlabel(param_name_2)
-    title('Avg IBI')
+    title('Avg IBI (s)')
     %Big title
     title_str = [param_name_1,' vs. ',param_name_2];
     sgtitle(title_str)
@@ -160,8 +163,8 @@ for p_i = 1:size(pairs,1)
     %Save
     if parameters.saveFlag
        save_str = [variedParam(pair_ind_1).name,'_vs_',variedParam(pair_ind_2).name,'_avg_net_results'];
-       savefig(f, strcat(save_path,save_str,'.fig'))
-       saveas(f, strcat(save_path,save_str,'.svg'))
+       savefig(f, strcat(save_path,'/',save_str,'.fig'))
+       saveas(f, strcat(save_path,'/',save_str,'.svg'))
     end
 end
 
