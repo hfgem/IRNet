@@ -1,4 +1,4 @@
-function [burst_results] = parallelize_parameter_tests(parameters,...
+function [net_burst_results, test_burst_var] = parallelize_parameter_tests(parameters,...
     parameterSets_vec, ithParamSet, variedParam)
     %_____
     %ABOUT: This function runs through a series of commands to test
@@ -27,14 +27,15 @@ function [burst_results] = parallelize_parameter_tests(parameters,...
     end
     
     %Set up storage variables
-    burst_results = cell(1,parameters.nNets);
+    net_burst_results = struct;
+    test_burst_results = struct;
     
     %Run simulation
     for ithNet = 1:parameters.nNets
         
         %CREATE NETWORK SAVE PATH
         net_save_path = strcat(param_save_path,'/network_',string(ithNet));
-        if parameters.saveFlag & ~isfolder(net_save_path)
+        if parameters.saveFlag && ~isfolder(net_save_path)
             mkdir(net_save_path);
         end
         % Generete ith network structure
@@ -46,7 +47,7 @@ function [burst_results] = parallelize_parameter_tests(parameters,...
         %RUN MODEL AND CALCULATE
         %Run through every cluster initialization and store relevant data and
         %calculations
-        burst_var = struct;
+        test_burst_var = struct;
         if parameters.run_light ~= 1
             V_m_var = struct;
             G_var = struct;
@@ -67,8 +68,11 @@ function [burst_results] = parallelize_parameter_tests(parameters,...
                     G_in(:,k) = G_in(:,k) + parameters.W_gin * [rand(parameters.n, 1) < (parameters.dt*parameters.rG)];
                 end
             elseif parameters.inputType == 2
-                % Theta input
-                G_in = (parameters.t_amp/2)*sin(2*pi*parameters.t_freq*(parameters.dt*ones(parameters.n,parameters.t_steps+1).*(1:parameters.t_steps+1))) + (parameters.G_std*randn(parameters.n,parameters.t_steps+1)) + (parameters.t_amp/2);
+                % Theta input + pink noise
+                pink_noise = pinknoise(parameters.t_steps+1,parameters.n);
+                pink_noise_scaled = parameters.N_amp*(pink_noise./max(pink_noise));
+                theta_wave = (parameters.t_amp/2)*sin(2*pi*parameters.t_freq*(parameters.dt*ones(parameters.n,parameters.t_steps+1).*(1:parameters.t_steps+1))) + parameters.t_amp/2;
+                G_in = theta_wave + (pink_noise_scaled)';
                 G_in(G_in<0) = 0;
             end
             parameters.('G_in') = G_in;
@@ -85,14 +89,14 @@ function [burst_results] = parallelize_parameter_tests(parameters,...
                 end
                 conns = zeros(parameters.n,parameters.n,2); %save connectivity changes
                 conns(:,:,1) = network.conns;
-                conns(:,:,2) = last_conns;
+                conns(:,:,2) = last_conns; %#ok<*NASGU>
                 clear last_conns
             else
                 %Create Storage Variables
                 V_m = zeros(parameters.n,parameters.t_steps+1); %membrane potential for each neuron at each timestep
                 V_m(:,1) = parameters.V_reset + randn([parameters.n,1])*(10^(-3))*sqrt(parameters.dt); %set all neurons to baseline reset membrane potential with added noise
                 [V_m, G_sra, G_syn_E_E, G_syn_I_E, G_syn_E_I, G_syn_I_I, conns] = ir_net_calculator(...
-                    parameters, seed, network, V_m);
+                    parameters, seed, network, V_m); %#ok<*ASGLU>
                 V_m_var(ithTest).V_m = V_m;
                 G_var(ithTest).G_in = G_in;
                 G_var(ithTest).G_sra = G_sra;
@@ -107,14 +111,14 @@ function [burst_results] = parallelize_parameter_tests(parameters,...
             
             %Calculate bursts
             bursts = burst_calculator(parameters,spikes_bin,net_save_path,ithNet,ithTest);
-            burst_var(ithTest).bursts = bursts;
+            test_burst_var(ithTest).bursts = bursts;
             clear bursts
             
         end %end test loop
 
         %SAVE NETWORK DATA
         if parameters.saveFlag
-            save(strcat(net_save_path,'/burst_var.mat'),'burst_var','-v7.3')
+            save(strcat(net_save_path,'/burst_var.mat'),'test_burst_var','-v7.3')
             if parameters.run_light ~= 1
                 save(strcat(net_save_path,'/V_m_var.mat'),'V_m_var','-v7.3')
                 save(strcat(net_save_path,'/G_var.mat'),'G_var','-v7.3')
@@ -128,18 +132,18 @@ function [burst_results] = parallelize_parameter_tests(parameters,...
         avg_length_of_burst = 0;
         avg_ibi_of_bursts = 0;
         for ithTest = 1:parameters.nTrials
-            num_bursts = length(burst_var(ithTest).bursts);
+            num_bursts = length(test_burst_var(ithTest).bursts);
             for b_i = 1:num_bursts
-                avg_neur_per_burst = avg_neur_per_burst + (burst_var(ithTest).bursts(b_i).num_neur / num_bursts);
-                avg_length_of_burst = avg_length_of_burst + (burst_var(ithTest).bursts(b_i).length / num_bursts);
-                avg_ibi_of_bursts = avg_ibi_of_bursts + (burst_var(ithTest).bursts(b_i).ibi / num_bursts);
+                avg_neur_per_burst = avg_neur_per_burst + (test_burst_var(ithTest).bursts(b_i).num_neur / num_bursts);
+                avg_length_of_burst = avg_length_of_burst + (test_burst_var(ithTest).bursts(b_i).length / num_bursts);
+                avg_ibi_of_bursts = avg_ibi_of_bursts + (test_burst_var(ithTest).bursts(b_i).ibi / num_bursts);
             end
         end
         
         %Save average burst data for the network
-        burst_results{ithNet}.avg_neur_per_burst = avg_neur_per_burst;
-        burst_results{ithNet}.avg_length_of_burst = avg_length_of_burst;
-        burst_results{ithNet}.avg_ibi_of_bursts = avg_ibi_of_bursts;
+        net_burst_results(ithNet).avg_neur_per_burst = avg_neur_per_burst;
+        net_burst_results(ithNet).avg_length_of_burst = avg_length_of_burst;
+        net_burst_results(ithNet).avg_ibi_of_bursts = avg_ibi_of_bursts;
         
     end 
     

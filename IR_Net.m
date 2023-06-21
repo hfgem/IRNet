@@ -47,8 +47,8 @@ parameters.mnc = 2; % mean number of clusters each neuron is a member of
 
 % Time
 parameters.dt = 1*10^(-3); %timestep (s)
-parameters.init_period = 10; %initialization time (s)
-parameters.sim_period = 290; %simulation time (s)
+parameters.init_period = 2; %initialization time (s)
+parameters.sim_period = 10; %simulation time (s)
 
 % Basic model parameters
 % tau_E ~= 10 ms from direct data, DOI: 10.1126/science.aaf1836
@@ -91,11 +91,10 @@ elseif strcmp(parameters.stdp_type,'decay')
 end
 parameters.depression_gain = 1*10^(-2); %amount to decrease connectivity (percent)
 
-% Input parameters:
-% Poisson input
-parameters.inputType = 0; % 0 = randn(), 1 = poisson, 2 = theta + randn()
+% Input parameters for conductance input
+parameters.inputType = 2; % 0 = randn(), 1 = poisson, 2 = theta + randn()
 if parameters.inputType == 0
-    % Conductance input
+    % Random noise input
     parameters.G_std = 8.5*10^-9; % STD of the input conductance G_in, if using randn()
     parameters.G_mean = 0.7*10^-9; % mean of the input conductance G_in, if using randn()
 elseif parameters.inputType == 1
@@ -104,9 +103,12 @@ elseif parameters.inputType == 1
     parameters.W_gin = 18*10^-9; % increase in conductance, if using poisson inputs
 elseif parameters.inputType == 2
     % Theta input
-    parameters.t_freq = 3.5; %Theta frequency (3.5 - 7.5 Hz)
-    parameters.t_amp = 9.75*10^(-9); %Theta wave amplitude (tbd a good range)
-    parameters.G_std = 0.7*10^(-9); %Theta wave noise std (tbd a good range)
+    %   Nitzan et al. 2022 had a criterion of looking at SWR separated by at least
+    %   500 ms, which we use for the 2 Hz base oscillation criterion and
+    %   randomized added pink noise on top.
+    parameters.t_freq = 2; %SWR frequency - Nitzan et al. 2022
+    parameters.t_amp = 9.75*10^(-9); %Wave amplitude (tbd a good range)
+    parameters.N_amp = 0.7*10^(-9); %Pink noise max amplitude
 end
 
 % Network connection parameters
@@ -186,8 +188,11 @@ for ithNet = 1:parameters.nNets
                 G_in(:,k) = G_in(:,k) + parameters.W_gin * [rand(parameters.n, 1) < (parameters.dt*parameters.rG)];
             end
         elseif parameters.inputType == 2
-            % Theta input
-            G_in = (parameters.t_amp/2)*sin(2*pi*parameters.t_freq*(parameters.dt*ones(parameters.n,parameters.t_steps+1).*(1:parameters.t_steps+1))) + (parameters.G_std*randn(parameters.n,parameters.t_steps+1)) + (parameters.t_amp/2);
+            % Theta input + pink noise
+            pink_noise = pinknoise(parameters.t_steps+1,parameters.n);
+            pink_noise_scaled = parameters.N_amp*(pink_noise./max(pink_noise));
+            theta_wave = (parameters.t_amp/2)*sin(2*pi*parameters.t_freq*(parameters.dt*ones(parameters.n,parameters.t_steps+1).*(1:parameters.t_steps+1))) + parameters.t_amp/2;
+            G_in = theta_wave + (pink_noise_scaled)';
             G_in(G_in<0) = 0;
         end
         parameters.('G_in') = G_in;

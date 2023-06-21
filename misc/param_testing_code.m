@@ -48,13 +48,17 @@ parameters.nTrials = 1; %Number of input initializations
 
 %Varied parameter structure
 variedParam = struct;
-variedParam(1).name = 'G_std';
-variedParam(1).range = linspace(8*10^(-9),12*10^(-9),test_n);
-variedParam(2).name = 'G_mean';
-variedParam(2).range = linspace(0,8*10^(-9),test_n);
+variedParam(1).name = 't_amp'; %Wave amplitude
+variedParam(1).range = linspace(4*10^(-9),12*10^(-9),test_n);
+variedParam(2).name = 'N_amp'; %Pink noise max amplitude
+variedParam(2).range = linspace(0,1*10^(-9),test_n);
 
-%Above parameters are for Gaussian input, so:
-parameters.inputType = 0; % 0 = randn(), 1 = poisson, 2 = theta + randn()
+%Relevant parameters to above varied ones + simulation
+parameters.dt = 1*10^(-3); %timestep (s)
+parameters.init_period = 1; %initialization time (s)
+parameters.sim_period = 2; %simulation time (s)
+parameters.inputType = 2; % 0 = randn(), 1 = poisson, 2 = theta + pink noise
+parameters.t_freq = 2; %SWR frequency - Nitzan et al. 2022
 
 % Combine into one parameter vector to pass to parfor function
 parameterSets_vec = combvec(variedParam(:).range);
@@ -79,10 +83,11 @@ nUpdateWaitbar(num_files, h); % Dummy call to nUpdateWaitbar to initialise
 afterEach(D, @nUpdateWaitbar);
 
 tic
-resultsStructLinear = cell(1, size(parameterSets_vec, 2));
+netresults = struct;
+testresults = struct;
 parfor ithParamSet = 1:size(parameterSets_vec, 2) %Run through all parameter combinations
     %For each combination run parallelize_parameter_tests
-    [resultsStructLinear{ithParamSet}] = parallelize_parameter_tests(...
+    [netresults(ithParamSet),testresults(ithParamSet)] = parallelize_parameter_tests(...
                 parameters, parameterSets_vec, ithParamSet, variedParam);
     send(D, 1);   
 end
@@ -90,6 +95,75 @@ runTime = toc;
 sprintf('Program Runtime (s) = %.2f',runTime)
 
 %% Analyze Burst Stats
+
+%Set parameter pairs for visualization
+num_params = length(variedParam);
+pairs = nchoosek(1:num_params,2);
+rescale = size(netresults,2)/(test_n^2);
+%Below lines need user inputs
+[P1,P2] = ind2sub([num_params,test_n],1:size(parameterSets_vec,2)); %update left to equal number of params
+param_inds = [P1;P2];
+
+%Plot results
+for p_i = 1:size(pairs,1)
+    pair_ind_1 = pairs(p_i,1);
+    pair_ind_2 = pairs(p_i,2);
+    param_name_1 = replace(variedParam(pair_ind_1).name,'_',' ');
+    param_name_2 = replace(variedParam(pair_ind_2).name,'_',' ');
+    avg_neur_per_burst_results_mat = zeros(test_n,test_n); %param1 x param2
+    avg_length_of_burst_results_mat = zeros(test_n,test_n); %param1 x param2
+    avg_ibi_of_burst_results_mat = zeros(test_n,test_n); %param1 x param2
+    for t_i = 1:size(netresults,2)
+        avg_neur_per_burst_results_mat(param_inds(pair_ind_1,t_i),param_inds(pair_ind_2,t_i)) = avg_neur_per_burst_results_mat(param_inds(pair_ind_1,t_i),param_inds(pair_ind_2,t_i)) + (netresults(t_i).avg_neur_per_burst/rescale);
+        avg_length_of_burst_results_mat(param_inds(pair_ind_1,t_i),param_inds(pair_ind_2,t_i)) = avg_length_of_burst_results_mat(param_inds(pair_ind_1,t_i),param_inds(pair_ind_2,t_i)) + (netresults(t_i).avg_length_of_burst/rescale);
+        avg_ibi_of_burst_results_mat(param_inds(pair_ind_1,t_i),param_inds(pair_ind_2,t_i)) = avg_ibi_of_burst_results_mat(param_inds(pair_ind_1,t_i),param_inds(pair_ind_2,t_i)) + (netresults(t_i).avg_ibi_of_bursts/rescale);
+    end
+    f = figure;
+    %Avg Burst Size (# Neurons)
+    s1 = subplot(2,2,1);
+    imagesc(avg_neur_per_burst_results_mat)
+    colorbar()
+    yticks(1:test_n)
+    yticklabels([variedParam(pair_ind_1).range])
+    ylabel(param_name_1)
+    xticks(1:test_n)
+    xticklabels([variedParam(pair_ind_2).range])
+    xlabel(param_name_2)
+    title('Avg Num Neur per Burst')
+    %Avg Burst Length
+    s2 = subplot(2,2,2);
+    imagesc(avg_length_of_burst_results_mat)
+    colorbar()
+    yticks(1:test_n)
+    yticklabels([variedParam(pair_ind_1).range])
+    ylabel(param_name_1)
+    xticks(1:test_n)
+    xticklabels([variedParam(pair_ind_2).range])
+    xlabel(param_name_2)
+    title('Avg Burst Length (s)')
+    %Avg IBI
+    s3 = subplot(2,2,3);
+    imagesc(flipud(avg_ibi_of_burst_results_mat))
+    colorbar()
+    yticks(1:test_n)
+    yticklabels([variedParam(pair_ind_1).range])
+    ylabel(param_name_1)
+    xticks(1:test_n)
+    xticklabels([variedParam(pair_ind_2).range])
+    xlabel(param_name_2)
+    title('Avg IBI')
+    %Big title
+    title_str = [param_name_1,' vs. ',param_name_2];
+    sgtitle(title_str)
+    %Link axes
+    linkaxes([s1,s2,s3])
+    %Save
+    if parameters.saveFlag
+       save_str = [variedParam(pair_ind_1).name,'_vs_',variedParam(pair_ind_2).name,'_avg_net_results'];
+       savefig(f, strcat(save_path,save_str,'.fig'))
+       saveas(f, strcat(save_path,save_str,'.svg'))
+    end
+end
 
 
 %% Functions 
