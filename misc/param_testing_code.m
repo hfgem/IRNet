@@ -93,6 +93,9 @@ parfor ithParamSet = 1:size(parameterSets_vec, 2) %Run through all parameter com
 end
 runTime = toc;
 sprintf('Program Runtime (s) = %.2f',runTime)
+disp('Now Saving Results')
+save(strcat(parameters.save_path,'/netresults.mat'),'netresults','-v7.3'); 
+save(strcat(parameters.save_path,'/testresults.mat'),'testresults','-v7.3'); 
 
 %% Analyze Burst Stats
 
