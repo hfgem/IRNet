@@ -40,7 +40,7 @@ function plot_burst_stats(parameters,bursts,ithNet,ithTest,net_save_path)
     subplot(3,2,5)
     plot([bursts.ibi])
     y_tick_vals = yticks();
-    yticklabels(y_tick_vals*parameters.dt)
+    yticklabels(y_tick_vals)
     ylabel('Time (s)')
     title('Time to Next Burst')
     subplot(3,2,2)
