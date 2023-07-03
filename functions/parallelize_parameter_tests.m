@@ -57,8 +57,15 @@ function [net_burst_results, test_burst_var] = parallelize_parameter_tests(param
         for ithTest = 1:parameters.nTrials       
             %Create input conductance variable
             if parameters.inputType == 0
-                % Conductance input
-                G_in = (parameters.G_std*randn(parameters.n,parameters.t_steps+1))+parameters.G_mean;
+                % Pink noise input
+                try %With installed audio package
+                    pink_noise = pinknoise(parameters.t_steps+1,parameters.n);
+                    pink_noise_scaled = parameters.N_amp*(pink_noise./max(pink_noise));
+                catch %For older MATLAB versions or uninstalled audio package
+                    pink_noise = dsp.ColoredNoise('Color','pink','NumChannels',parameters.n,'SamplesPerFrame',parameters.t_steps+1);
+                    pink_noise_scaled = parameters.N_amp*(pink_noise()./max(pink_noise()));
+                end
+                G_in = pink_noise_scaled;
                 G_in(G_in<0) = 0;
             elseif parameters.inputType == 1
                 % Poisson input

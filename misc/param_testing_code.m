@@ -56,7 +56,7 @@ variedParam(2).range = linspace(0,1*10^(-9),test_n);
 %Relevant parameters to above varied ones + simulation
 parameters.dt = 1*10^(-3); %timestep (s)
 parameters.init_period = 30; %initialization time (s)
-parameters.sim_period = 270; %simulation time (s)
+parameters.sim_period = 150; %simulation time (s)
 parameters.inputType = 2; % 0 = randn(), 1 = poisson, 2 = theta + pink noise
 parameters.t_freq = 2; %SWR frequency - Nitzan et al. 2022
 
@@ -83,11 +83,13 @@ nUpdateWaitbar(num_files, h); % Dummy call to nUpdateWaitbar to initialise
 afterEach(D, @nUpdateWaitbar);
 
 tic
-netresults = struct;
+netresults = struct('avg_neur_per_burst',[],'avg_length_of_burst',...
+    [],'avg_ibi_of_bursts',[]);
 testresults = struct;
+%Then parallelize the rest
 parfor ithParamSet = 1:size(parameterSets_vec, 2) %Run through all parameter combinations
     %For each combination run parallelize_parameter_tests
-    [netresults(ithParamSet),testresults(ithParamSet)] = parallelize_parameter_tests(...
+    [netresults(ithParamSet), testresults(ithParamSet).results] = parallelize_parameter_tests(...
                 parameters, parameterSets_vec, ithParamSet, variedParam);
     send(D, 1);   
 end

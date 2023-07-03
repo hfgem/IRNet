@@ -87,16 +87,15 @@ elseif strcmp(parameters.stdp_type,'decay')
     parameters.tau_E_decay = -30/log(0.5); %E connection strength decay timescale (s)
     parameters.tau_I_decay = -180/log(0.5); %I connection strength decay timescale (s)
     parameters.potentiation_gain_E = 5*10^(-2); %amount to increase connectivity (percent)
-    parameters.potentiation_gain_I = parameters.potentiation_gain_E; %amount to increase connectivity (percent)
+    parameters.potentiation_gain_I = 3*10^(-2); %amount to increase connectivity (percent)
 end
 parameters.depression_gain = 1*10^(-2); %amount to decrease connectivity (percent)
 
 % Input parameters for conductance input
 parameters.inputType = 2; % 0 = randn(), 1 = poisson, 2 = theta + randn()
 if parameters.inputType == 0
-    % Random noise input
-    parameters.G_std = 8.5*10^-9; % STD of the input conductance G_in, if using randn()
-    parameters.G_mean = 0.7*10^-9; % mean of the input conductance G_in, if using randn()
+    % Random noise input - pink noise
+    parameters.N_amp = 0.7*10^(-9); %Pink noise max amplitude
 elseif parameters.inputType == 1
     % Poisson input
     parameters.rG = 1; % input spiking rate, if using poisson inputs
@@ -177,8 +176,15 @@ for ithNet = 1:parameters.nNets
         disp('Simulation ' + string(ithNet))
         %Create input conductance variable
         if parameters.inputType == 0
-            % Conductance input
-            G_in = (parameters.G_std*randn(parameters.n,parameters.t_steps+1))+parameters.G_mean;
+            % Pink noise input
+            try %With installed audio package
+                pink_noise = pinknoise(parameters.t_steps+1,parameters.n);
+                pink_noise_scaled = parameters.N_amp*(pink_noise./max(pink_noise));
+            catch %For older MATLAB versions or uninstalled audio package
+                pink_noise = dsp.ColoredNoise('Color','pink','NumChannels',parameters.n,'SamplesPerFrame',parameters.t_steps+1);
+                pink_noise_scaled = parameters.N_amp*(pink_noise()./max(pink_noise()));
+            end
+            G_in = pink_noise_scaled;
             G_in(G_in<0) = 0;
         elseif parameters.inputType == 1
             % Poisson input
@@ -189,8 +195,13 @@ for ithNet = 1:parameters.nNets
             end
         elseif parameters.inputType == 2
             % Theta input + pink noise
-            pink_noise = pinknoise(parameters.t_steps+1,parameters.n);
-            pink_noise_scaled = parameters.N_amp*(pink_noise./max(pink_noise));
+            try %With installed audio package
+                pink_noise = pinknoise(parameters.t_steps+1,parameters.n);
+                pink_noise_scaled = parameters.N_amp*(pink_noise./max(pink_noise));
+            catch %For older MATLAB versions or uninstalled audio package
+                pink_noise = dsp.ColoredNoise('Color','pink','NumChannels',parameters.n,'SamplesPerFrame',parameters.t_steps+1);
+                pink_noise_scaled = parameters.N_amp*(pink_noise()./max(pink_noise()));
+            end
             theta_wave = (parameters.t_amp/2)*sin(2*pi*parameters.t_freq*(parameters.dt*ones(parameters.n,parameters.t_steps+1).*(1:parameters.t_steps+1))) + parameters.t_amp/2;
             G_in = theta_wave + (pink_noise_scaled)';
             G_in(G_in<0) = 0;
