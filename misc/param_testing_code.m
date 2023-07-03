@@ -49,9 +49,9 @@ parameters.nTrials = 1; %Number of input initializations
 %Varied parameter structure
 variedParam = struct;
 variedParam(1).name = 't_amp'; %Wave amplitude
-variedParam(1).range = linspace(4*10^(-9),12*10^(-9),test_n);
+variedParam(1).range = round(linspace(4*10^(-9),12*10^(-9),test_n),3,'significant'); %added rounding
 variedParam(2).name = 'N_amp'; %Pink noise max amplitude
-variedParam(2).range = linspace(0,1*10^(-9),test_n);
+variedParam(2).range = round(linspace(0,1*10^(-9),test_n),3,'significant'); %added rounding
 
 %Relevant parameters to above varied ones + simulation
 parameters.dt = 1*10^(-3); %timestep (s)
@@ -127,9 +127,9 @@ save(strcat(parameters.save_path,'/good_params.mat'),'good_params','-v7.3');
 %Set parameter pairs for visualization
 num_params = length(variedParam);
 pairs = nchoosek(1:num_params,2);
-rescale = size(netresults,2)/(test_n^2);
+rescale = size(netresults,2)/(test_n^length(variedParam));
 %Below lines need user inputs
-[P1,P2] = ind2sub([num_params,test_n],1:size(parameterSets_vec,2)); %update left to equal number of params
+[P1,P2] = ind2sub([num_params,test_n],parameterSets_vec); %update left to equal number of params
 param_inds = [P1;P2];
 
 %Plot results
@@ -142,9 +142,11 @@ for p_i = 1:size(pairs,1)
     avg_length_of_burst_results_mat = zeros(test_n,test_n); %param1 x param2
     avg_ibi_of_burst_results_mat = zeros(test_n,test_n); %param1 x param2
     for t_i = 1:size(netresults,2)
-        avg_neur_per_burst_results_mat(param_inds(pair_ind_1,t_i),param_inds(pair_ind_2,t_i)) = avg_neur_per_burst_results_mat(param_inds(pair_ind_1,t_i),param_inds(pair_ind_2,t_i)) + (netresults(t_i).avg_neur_per_burst/rescale);
-        avg_length_of_burst_results_mat(param_inds(pair_ind_1,t_i),param_inds(pair_ind_2,t_i)) = avg_length_of_burst_results_mat(param_inds(pair_ind_1,t_i),param_inds(pair_ind_2,t_i)) + (netresults(t_i).avg_length_of_burst/rescale);
-        avg_ibi_of_burst_results_mat(param_inds(pair_ind_1,t_i),param_inds(pair_ind_2,t_i)) = avg_ibi_of_burst_results_mat(param_inds(pair_ind_1,t_i),param_inds(pair_ind_2,t_i)) + (netresults(t_i).avg_ibi_of_bursts/rescale);
+        param_1_ind = find(variedParam(pair_ind_1).range == parameterSets_vec(pair_ind_1,t_i));
+        param_2_ind = find(variedParam(pair_ind_2).range == parameterSets_vec(pair_ind_2,t_i));
+        avg_neur_per_burst_results_mat(param_1_ind,param_2_ind) = avg_neur_per_burst_results_mat(param_1_ind,param_2_ind) + (netresults(t_i).avg_neur_per_burst/rescale);
+        avg_length_of_burst_results_mat(param_1_ind,param_2_ind) = avg_length_of_burst_results_mat(param_1_ind,param_2_ind) + (netresults(t_i).avg_length_of_burst/rescale);
+        avg_ibi_of_burst_results_mat(param_1_ind,param_2_ind) = avg_ibi_of_burst_results_mat(param_1_ind,param_2_ind) + (netresults(t_i).avg_ibi_of_bursts/rescale);
     end
     f = figure;
     %Avg Burst Size (# Neurons)
@@ -157,6 +159,7 @@ for p_i = 1:size(pairs,1)
     ylabel(param_name_1)
     xticks(1:test_n)
     xticklabels([variedParam(pair_ind_2).range])
+    xtickangle(45)
     xlabel(param_name_2)
     title('Avg Num Neur per Burst')
     %Avg Burst Length
@@ -169,6 +172,7 @@ for p_i = 1:size(pairs,1)
     ylabel(param_name_1)
     xticks(1:test_n)
     xticklabels([variedParam(pair_ind_2).range])
+    xtickangle(45)
     xlabel(param_name_2)
     title('Avg Burst Length (s)')
     %Avg IBI
@@ -181,6 +185,7 @@ for p_i = 1:size(pairs,1)
     ylabel(param_name_1)
     xticks(1:test_n)
     xticklabels([variedParam(pair_ind_2).range])
+    xtickangle(45)
     xlabel(param_name_2)
     title('Avg IBI (s)')
     %Big title
@@ -231,6 +236,7 @@ for p_i = 1:size(pairs,1)
     ylabel(param_name_1)
     xticks(1:test_n)
     xticklabels([variedParam(pair_ind_2).range])
+    xtickangle(45)
     xlabel(param_name_2)
     title('Avg Num Neur per Burst')
     %Avg Burst Length
