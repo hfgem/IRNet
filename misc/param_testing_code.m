@@ -62,7 +62,7 @@ parameters.t_freq = 3; %SWR frequency - Tort et al 2018 respiration rhythm durin
 
 %"Good Bursts" Settings
 parameters.min_burst_len = 5*10^(-3); %Minimum "good" burst length (s)
-parameters.max_burst_len = 100*10^(-3); %Maximum "good" burst length (s)
+parameters.max_burst_len = 500*10^(-3); %Maximum "good" burst length (s)
 parameters.min_ibi = 50*10^(-3); %Minimum inter-burst-interval
 parameters.min_n_burst = parameters.n*0.05; %Minimum number of neurons in a burst
 
@@ -112,9 +112,9 @@ good_params = [];
 for p_i = 1:num_param_sets
     %avg # neurons per burst
     if netresults(p_i).avg_neur_per_burst >= parameters.min_n_burst
-        if parameters.min_burst_len <= netresults(p_i).avg_length_of_burst <= parameters.max_burst_len
+        if (parameters.min_burst_len <= netresults(p_i).avg_length_of_burst) && (netresults(p_i).avg_length_of_burst <= parameters.max_burst_len)
             if parameters.min_ibi <= netresults(p_i).avg_ibi_of_bursts
-                good_params(end+1) = parameterSets_vec(p_i,:).T; %#ok<SAGROW>
+                good_params = [good_params; parameterSets_vec(:,p_i)']; %#ok<SAGROW>
             end    
         end
     end    
