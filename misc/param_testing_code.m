@@ -42,23 +42,33 @@ variedParam(2).range = linspace(450*10^(-12), 1050*10^(-12), test_n); % set of v
 %}
 
 %Number of values to test for each parameter
-test_n = 10;
+test_n = 3;
+parameters.test_n = test_n;
 parameters.nNets = 1; %Number of network initializations
 parameters.nTrials = 1; %Number of input initializations
 
 %Varied parameter structure
 variedParam = struct;
 variedParam(1).name = 't_amp'; %Wave amplitude
-variedParam(1).range = linspace(4*10^(-9),12*10^(-9),test_n);
+variedParam(1).range = round(linspace(1*10^(-8),2*10^(-8),parameters.test_n),3,'significant'); %added rounding
 variedParam(2).name = 'N_amp'; %Pink noise max amplitude
-variedParam(2).range = linspace(0,1*10^(-9),test_n);
+variedParam(2).range = round(linspace(0,1*10^(-9),parameters.test_n),3,'significant'); %added rounding
+variedParam(3).name = 'tau_I_decay'; %Pink noise max amplitude
+variedParam(3).range = round(linspace(-180,-30,parameters.test_n)./log(0.5),3,'significant'); %added rounding
+
 
 %Relevant parameters to above varied ones + simulation
 parameters.dt = 1*10^(-3); %timestep (s)
-parameters.init_period = 30; %initialization time (s)
-parameters.sim_period = 150; %simulation time (s)
+parameters.init_period = 10; %initialization time (s)
+parameters.sim_period = 30; %simulation time (s)
 parameters.inputType = 2; % 0 = randn(), 1 = poisson, 2 = theta + pink noise
-parameters.t_freq = 2; %SWR frequency - Nitzan et al. 2022
+parameters.t_freq = 3; %SWR frequency - Tort et al 2018 respiration rhythm during REM sleep
+
+%"Good Bursts" Settings
+parameters.min_burst_len = 5*10^(-3); %Minimum "good" burst length (s)
+parameters.max_burst_len = 500*10^(-3); %Maximum "good" burst length (s)
+parameters.min_ibi = 50*10^(-3); %Minimum inter-burst-interval
+parameters.min_n_burst = parameters.n*0.05; %Minimum number of neurons in a burst
 
 % Combine into one parameter vector to pass to parfor function
 parameterSets_vec = combvec(variedParam(:).range);
@@ -99,80 +109,42 @@ disp('Now Saving Results')
 save(strcat(parameters.save_path,'/netresults.mat'),'netresults','-v7.3'); 
 save(strcat(parameters.save_path,'/testresults.mat'),'testresults','-v7.3'); 
 
-%% Analyze Burst Stats
+%% Determine "Good Parameters"
 
-%Set parameter pairs for visualization
-num_params = length(variedParam);
-pairs = nchoosek(1:num_params,2);
-rescale = size(netresults,2)/(test_n^2);
-%Below lines need user inputs
-[P1,P2] = ind2sub([num_params,test_n],1:size(parameterSets_vec,2)); %update left to equal number of params
-param_inds = [P1;P2];
+num_param_sets = size(parameterSets_vec,2);
+good_params = [];
+for p_i = 1:num_param_sets
+    %avg # neurons per burst
+    if netresults(p_i).avg_neur_per_burst >= parameters.min_n_burst
+        if (parameters.min_burst_len <= netresults(p_i).avg_length_of_burst) && (netresults(p_i).avg_length_of_burst <= parameters.max_burst_len)
+            if parameters.min_ibi <= netresults(p_i).avg_ibi_of_bursts
+                good_params = [good_params; parameterSets_vec(:,p_i)']; %#ok<SAGROW>
+            end    
+        end
+    end    
+    
+end    
+save(strcat(parameters.save_path,'/good_params.mat'),'good_params','-v7.3'); 
 
-%Plot results
-for p_i = 1:size(pairs,1)
-    pair_ind_1 = pairs(p_i,1);
-    pair_ind_2 = pairs(p_i,2);
-    param_name_1 = replace(variedParam(pair_ind_1).name,'_',' ');
-    param_name_2 = replace(variedParam(pair_ind_2).name,'_',' ');
-    avg_neur_per_burst_results_mat = zeros(test_n,test_n); %param1 x param2
-    avg_length_of_burst_results_mat = zeros(test_n,test_n); %param1 x param2
-    avg_ibi_of_burst_results_mat = zeros(test_n,test_n); %param1 x param2
-    for t_i = 1:size(netresults,2)
-        avg_neur_per_burst_results_mat(param_inds(pair_ind_1,t_i),param_inds(pair_ind_2,t_i)) = avg_neur_per_burst_results_mat(param_inds(pair_ind_1,t_i),param_inds(pair_ind_2,t_i)) + (netresults(t_i).avg_neur_per_burst/rescale);
-        avg_length_of_burst_results_mat(param_inds(pair_ind_1,t_i),param_inds(pair_ind_2,t_i)) = avg_length_of_burst_results_mat(param_inds(pair_ind_1,t_i),param_inds(pair_ind_2,t_i)) + (netresults(t_i).avg_length_of_burst/rescale);
-        avg_ibi_of_burst_results_mat(param_inds(pair_ind_1,t_i),param_inds(pair_ind_2,t_i)) = avg_ibi_of_burst_results_mat(param_inds(pair_ind_1,t_i),param_inds(pair_ind_2,t_i)) + (netresults(t_i).avg_ibi_of_bursts/rescale);
-    end
-    f = figure;
-    %Avg Burst Size (# Neurons)
-    s1 = subplot(2,2,1);
-    imagesc(avg_neur_per_burst_results_mat)
-    c1 = colorbar();
-    c1.Label.String = 'Avg Number of Neurons';
-    yticks(1:test_n)
-    yticklabels([variedParam(pair_ind_1).range])
-    ylabel(param_name_1)
-    xticks(1:test_n)
-    xticklabels([variedParam(pair_ind_2).range])
-    xlabel(param_name_2)
-    title('Avg Num Neur per Burst')
-    %Avg Burst Length
-    s2 = subplot(2,2,2);
-    imagesc(avg_length_of_burst_results_mat)
-    c2 = colorbar();
-    c2.Label.String = 'Avg Length of Burst (s)';
-    yticks(1:test_n)
-    yticklabels([variedParam(pair_ind_1).range])
-    ylabel(param_name_1)
-    xticks(1:test_n)
-    xticklabels([variedParam(pair_ind_2).range])
-    xlabel(param_name_2)
-    title('Avg Burst Length (s)')
-    %Avg IBI
-    s3 = subplot(2,2,3);
-    imagesc(flipud(avg_ibi_of_burst_results_mat))
-    c3 = colorbar();
-    c3.Label.String = 'Avg IBI (s)';
-    yticks(1:test_n)
-    yticklabels([variedParam(pair_ind_1).range])
-    ylabel(param_name_1)
-    xticks(1:test_n)
-    xticklabels([variedParam(pair_ind_2).range])
-    xlabel(param_name_2)
-    title('Avg IBI (s)')
-    %Big title
-    title_str = [param_name_1,' vs. ',param_name_2];
-    sgtitle(title_str)
-    %Link axes
-    linkaxes([s1,s2,s3])
-    %Save
-    if parameters.saveFlag
-       save_str = [variedParam(pair_ind_1).name,'_vs_',variedParam(pair_ind_2).name,'_avg_net_results'];
-       savefig(f, strcat(save_path,'/',save_str,'.fig'))
-       saveas(f, strcat(save_path,'/',save_str,'.svg'))
-    end
+%Display/save which ranges are good
+range_file = strcat(parameters.save_path,'/ranges.txt');
+varnames = {'Parameter','Minimum','Maximum'};
+vartypes = {'string','double','double'};
+sz = [size(variedParam,2),3];
+range_table = table('Size',sz,'VariableTypes',vartypes,'VariableNames',varnames);
+for v_i = 1:size(variedParam,2)
+    min_val = min(good_params(:,v_i));
+    max_val = max(good_params(:,v_i));
+    param_name = replace(variedParam(v_i).name,'_',' ');
+    range_table(v_i,:) = {param_name,min_val,max_val};
+    string_range = strcat(param_name,' good range: [',...
+        string(min_val),',',string(max_val),'].');
+    disp(string_range)
 end
+writetable(range_table,range_file)
+%% Plot Burst Stats
 
+plot_param_test_results(parameters,variedParam,parameterSets_vec,netresults)
 
 %% Functions 
 function p = nUpdateWaitbar(data, h)
