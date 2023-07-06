@@ -64,6 +64,7 @@ function [net_burst_results, test_burst_var] = parallelize_parameter_tests(param
                 catch %For older MATLAB versions or uninstalled audio package
                     pink_noise = dsp.ColoredNoise('Color','pink','NumChannels',parameters.n,'SamplesPerFrame',parameters.t_steps+1);
                     pink_noise_scaled = parameters.N_amp*(pink_noise()./max(pink_noise()));
+                    pink_noise_scaled = pink_noise_scaled';
                 end
                 G_in = pink_noise_scaled;
                 G_in(G_in<0) = 0;

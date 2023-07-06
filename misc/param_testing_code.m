@@ -1,6 +1,7 @@
 %Code to test parameters
 
 clear all
+close all
 
 %% Get file directory and add functions to path
 
@@ -42,27 +43,25 @@ variedParam(2).range = linspace(450*10^(-12), 1050*10^(-12), test_n); % set of v
 %}
 
 %Number of values to test for each parameter
-test_n = 3;
+test_n = 10;
 parameters.test_n = test_n;
-parameters.nNets = 1; %Number of network initializations
+parameters.nNets = 3; %Number of network initializations
 parameters.nTrials = 1; %Number of input initializations
 
 %Varied parameter structure
 variedParam = struct;
-variedParam(1).name = 't_amp'; %Wave amplitude
-variedParam(1).range = round(linspace(1*10^(-8),2*10^(-8),parameters.test_n),3,'significant'); %added rounding
-variedParam(2).name = 'N_amp'; %Pink noise max amplitude
-variedParam(2).range = round(linspace(0,1*10^(-9),parameters.test_n),3,'significant'); %added rounding
-variedParam(3).name = 'tau_I_decay'; %Pink noise max amplitude
+variedParam(1).name = 'N_amp'; %Pink noise max amplitude
+variedParam(1).range = round(linspace(0,1*10^(-9),parameters.test_n),3,'significant'); %added rounding
+variedParam(2).name = 'tau_I_decay'; %Decay Timescale for Inhibitory Connections
+variedParam(2).range = round(linspace(-180,-30,parameters.test_n)./log(0.5),3,'significant'); %added rounding
+variedParam(3).name = 'tau_E_decay'; %Decay Timescale for Excitatory Connections
 variedParam(3).range = round(linspace(-180,-30,parameters.test_n)./log(0.5),3,'significant'); %added rounding
-
 
 %Relevant parameters to above varied ones + simulation
 parameters.dt = 1*10^(-3); %timestep (s)
-parameters.init_period = 10; %initialization time (s)
-parameters.sim_period = 30; %simulation time (s)
-parameters.inputType = 2; % 0 = randn(), 1 = poisson, 2 = theta + pink noise
-parameters.t_freq = 3; %SWR frequency - Tort et al 2018 respiration rhythm during REM sleep
+parameters.init_period = 30; %initialization time (s)
+parameters.sim_period = 270; %simulation time (s)
+parameters.inputType = 0; % 0 = randn(), 1 = poisson, 2 = theta + pink noise
 
 %"Good Bursts" Settings
 parameters.min_burst_len = 5*10^(-3); %Minimum "good" burst length (s)
