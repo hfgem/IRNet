@@ -141,8 +141,17 @@ function [V_m, G_sra, G_syn_E_E, G_syn_I_E, G_syn_E_I, G_syn_I_I, conn_changes] 
         %______________________________________
         %Update connection strengths with decay
         if strcmp(parameters.stdp_type,'decay')
-            conns(network.E_indices,:) = conns(network.E_indices,:)*exp(-parameters.dt/parameters.tau_E_decay);
-            conns(network.I_indices,:) = conns(network.I_indices,:)*exp(-parameters.dt/parameters.tau_I_decay);
+            %Options: 'linear','exponential','gaussian'
+            if strcmp(parameters.decay_type,'linear')
+                conns(network.E_indices,:) = conns(network.E_indices,:) + -parameters.dt/parameters.tau_E_decay;
+                conns(network.I_indices,:) = conns(network.I_indices,:) + -parameters.dt/parameters.tau_I_decay;
+            elseif strcmp(parameters.decay_type,'exponential')    
+                conns(network.E_indices,:) = conns(network.E_indices,:)*exp(-parameters.dt/parameters.tau_E_decay);
+                conns(network.I_indices,:) = conns(network.I_indices,:)*exp(-parameters.dt/parameters.tau_I_decay);
+            elseif strcmp(parameters.decay_type,'gaussian')
+                conns(network.E_indices,:) = conns(network.E_indices,:)*exp(-(parameters.dt)^2/parameters.tau_E_decay);
+                conns(network.I_indices,:) = conns(network.I_indices,:)*exp(-(parameters.dt)^2/parameters.tau_I_decay);
+            end
         end
         %______________________________________
         %Update which neurons spiked
