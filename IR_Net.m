@@ -76,7 +76,11 @@ parameters.del_G_sra = 200e-09; %spike rate adaptation conductance step followin
 parameters.tau_sra = 50*10^(-3); %spike rate adaptation time constant (s)
 
 % STDP parameters
-parameters.stdp_type = 'decay'; %'growth'; %decay = fast excitatory decay; groth = slow inhibitory growth;
+parameters.stdp_type = 'decay'; %'growth'; %decay = fast excitatory decay; growth = slow inhibitory growth;
+if strcmp(parameters.stdp_type,'decay')
+    %Options: 'linear','exponential','gaussian'
+    parameters.decay_type = 'linear';
+end
 parameters.tau_stdp = 5*10^(-3); %STDP time constant (s)                 
 if strcmp(parameters.stdp_type,'growth')
     parameters.I_max = 4.5; %Maximum inhibitory connection strength multiplier
