@@ -23,6 +23,14 @@ parameters.saveFlag = 1; % 1 to save simulation results
 parameters.selectPath = 1; % 1 to select save destination, 0 to save in current dir
 parameters.plotResults = 1; % 1 to plot basic simulation results
 
+if parameters.saveFlag & parameters.selectPath
+    disp("Select Save Path for Results and Parameters")
+    save_path = uigetdir('/Users/hannahgermaine/Documents/PhD/','Select Save Folder'); %Have user input where they'd like the output stored
+else
+    save_path = [pwd, '/'];
+end
+parameters.save_path = save_path;
+
 %If uploading a parameter file, uncomment the next load line and skip next 2
 %sections that deal with parameters:
 % load(strcat(save_path,'/parameters.mat'))
@@ -30,7 +38,7 @@ parameters.plotResults = 1; % 1 to plot basic simulation results
 %% Parameter Set Up
 
 % Run light simulator
-parameters.run_light = 1; %If 1 = only V_m stored; 0 = all parameters stored.
+parameters.run_light = 1; %If 1 = only spike times and final conns stored; 0 = all parameters stored.
 
 % Network structure parameters
 parameters.n = 200; %number of neurons
@@ -39,14 +47,14 @@ parameters.mnc = 2; % mean number of clusters each neuron is a member of
 
 % Time
 parameters.dt = 1*10^(-3); %timestep (s)
-parameters.t_max = 600*parameters.dt; %maximum amount of time (s)
+parameters.init_period = 5*10^(-3); %initialization time (s)
+parameters.sim_period = 3; %simulation time (s)
 
 % Basic model parameters
 % tau_E ~= 10 ms from direct data, DOI: 10.1126/science.aaf1836
 parameters.tau_syn_E = 10*10^(-3); % Exc. synaptic decay time constant (s) PF19=50ms, HF18=10ms for figs 7-8 and longer for earlier figs
 % tau_I ~= 1.2-8 ms from direct data, https://doi.org/10.1073/pnas.192233099
 parameters.tau_syn_I = 2*10^(-3);  % Inh. synaptic decay time constant (s) PF19=5ms,  HF18=10ms for figs 7-8 and for earlier figs
-parameters.tau_stdp = 5*10^(-3); %STDP time constant (s)                 
 parameters.E_K = -75*10^(-3); %potassium reversal potential (V) %-75 or -80 mV
 parameters.E_L = -70*10^(-3); %leak reversal potential (V) %-60 - -70 mV range
 parameters.G_L = 25*10^(-9); %leak conductance (S) %10 - 30 nS range
@@ -68,31 +76,42 @@ parameters.del_G_sra = 200e-09; %spike rate adaptation conductance step followin
 parameters.tau_sra = 50*10^(-3); %spike rate adaptation time constant (s)
 
 % STDP parameters
-parameters.potentiation_gain_E = 5*10^(-4); %amount to increase connectivity (percent)
-parameters.potentiation_gain_I = 1*10^(-4); %amount to increase connectivity (percent)
-parameters.depression_gain = 10*10^(-4); %amount to decrease connectivity (percent)
-parameters.I_max = 2; %Maximum inhibitory connection strength multiplier
-parameters.E_max = 1.5; %Maximum excitatory connection strength multiplier
+parameters.stdp_type = 'decay'; %'growth'; %decay = fast excitatory decay; groth = slow inhibitory growth;
+if strcmp(parameters.stdp_type,'decay')
+    %Options: 'linear','exponential','gaussian'
+    parameters.decay_type = 'gaussian';
+end
+parameters.tau_stdp = 5*10^(-3); %STDP time constant (s)                 
+if strcmp(parameters.stdp_type,'growth')
+    parameters.I_max = 4.5; %Maximum inhibitory connection strength multiplier
+    parameters.E_max = 1.5; %Maximum excitatory connection strength multiplier
+    parameters.potentiation_gain_E = 5*10^(-2); %amount to increase connectivity (percent)
+    parameters.potentiation_gain_I = 1*10^(-2);  %amount to increase connectivity (percent)
+elseif strcmp(parameters.stdp_type,'decay')
+    parameters.tau_E_decay = -0.0005/log(0.5); %E connection strength decay timescale (s)
+    parameters.tau_I_decay = -0.0009/log(0.5); %I connection strength decay timescale (s)
+    parameters.potentiation_gain_E = 20*10^(-2); %amount to increase connectivity (percent)
+    parameters.potentiation_gain_I = 20*10^(-2); %amount to increase connectivity (percent)
+end
+parameters.depression_gain = 1*10^(-2); %amount to decrease connectivity (percent)
 
-% Inhibitory gain parameters
-parameters.I_E_delay = 10; %Time to delay the sigmoid curve for increased I-E connections (s)
-
-% Input parameters:
-% Poisson input
+% Input parameters for conductance input
 parameters.inputType = 2; % 0 = randn(), 1 = poisson, 2 = theta + randn()
 if parameters.inputType == 0
-    % Conductance input
-    parameters.G_std = 18*10^-9; % STD of the input conductance G_in, if using randn()
-    parameters.G_mean = 0*10^-12; % mean of the input conductance G_in, if using randn()
+    % Random noise input - pink noise
+    parameters.N_amp = 0.7*10^(-9); %Pink noise max amplitude
 elseif parameters.inputType == 1
     % Poisson input
-    parameters.rG = 10; % input spiking rate, if using poisson inputs
-    parameters.W_gin = 8*10^-9; % increase in conductance, if using poisson inputs
+    parameters.rG = 1; % input spiking rate, if using poisson inputs
+    parameters.W_gin = 18*10^-9; % increase in conductance, if using poisson inputs
 elseif parameters.inputType == 2
     % Theta input
-    parameters.t_freq = 3.5; %Theta frequency (3.5 - 7.5 Hz)
-    parameters.t_amp = 9.75*10^(-9); %Theta wave amplitude (tbd a good range)
-    parameters.G_std = 0.7*10^(-9); %Theta wave noise std (tbd a good range)
+    %   Nitzan et al. 2022 had a criterion of looking at SWR separated by at least
+    %   500 ms, which we use for the 2 Hz base oscillation criterion and
+    %   randomized added pink noise on top.
+    parameters.t_freq = 2; %SWR frequency - Nitzan et al. 2022
+    parameters.t_amp = 9.75*10^(-9); %Wave amplitude (tbd a good range)
+    parameters.N_amp = 0.7*10^(-9); %Pink noise max amplitude
 end
 
 % Network connection parameters
@@ -103,14 +122,32 @@ parameters.global_inhib = 0; % if 1, I-cells are not clustered and have connecti
 parameters.p_I = 0.5; % probability of an I cell connecting to any other cell
 
 %Set burst selection parameters
+parameters.burst_n_min = 0.05; %Fraction of neurons that must be active in a burst for it to count
 parameters.burst_t_min = 10*10^(-3); %Seconds that must pass without activity to separate bursts
+parameters.num_burst_avg = 5; %Number of bursts to average together for visualizations
+parameters.num_rast_to_plot = 25; %Number of burst rasters to plot
+
+% Number of trials per net to run
+parameters.nTrials = 1; % How many tests of different initializations to run
+parameters.nNets = 1; % How many networks to run
 
 disp("Set Base Parameters")
 
-%Update dependent parameters
+% Update dependent parameters and save
 parameters = set_dependent_parameters(parameters);
 
 disp("Set Dependent Parameters")
+
+%Save to computer
+if parameters.saveFlag & ~isfolder(save_path)
+    mkdir(save_path);
+end
+    
+if parameters.saveFlag
+    save(strcat(save_path,'/parameters.mat'),'parameters','-v7.3'); 
+    disp("Saved Parameters")
+end
+
 %% Run Simulation + Plot
 
 seed = 1;
@@ -131,42 +168,20 @@ del_conn_change = zeros(1,parameters.t_steps+1);
 conns(I_ind,E_ind) = 1;
 conns(E_ind,I_ind) = 0;
 
-%Create a maximum connection strength matrix
-conns_max = conns;
-conns_max(network.E_indices,:) = conns_max(network.E_indices,:)*parameters.E_max;
-conns_max(network.I_indices,:) = conns_max(network.I_indices,:)*parameters.I_max;
-
-%Set spike times
+%Set spike pairs
+time_ind = ceil(linspace(1,parameters.t_steps-10,20)); %50 presentations
 V_m = parameters.V_reset*ones(parameters.n,parameters.t_steps+1); %set all neurons to reset value at all times
-V_m(I_ind,40) = parameters.V_th + 1*10^(-3); %set inhibitory neuron first spike
-V_m(E_ind,45) = parameters.V_th + 1*10^(-3); %set excitatory neuron first spike
-V_m(I_ind,80) = parameters.V_th + 1*10^(-3); %set inhibitory neuron first spike
-V_m(E_ind,85) = parameters.V_th + 1*10^(-3); %set excitatory neuron first spike
-V_m(I_ind,120) = parameters.V_th + 1*10^(-3); %set inhibitory neuron first spike
-V_m(E_ind,125) = parameters.V_th + 1*10^(-3); %set excitatory neuron first spike
-V_m(I_ind,160) = parameters.V_th + 1*10^(-3); %set inhibitory neuron first spike
-V_m(E_ind,165) = parameters.V_th + 1*10^(-3); %set excitatory neuron first spike
-V_m(I_ind,200) = parameters.V_th + 1*10^(-3); %set inhibitory neuron first spike
-V_m(E_ind,205) = parameters.V_th + 1*10^(-3); %set excitatory neuron first spike
-V_m(I_ind,240) = parameters.V_th + 1*10^(-3); %set inhibitory neuron first spike
-V_m(E_ind,245) = parameters.V_th + 1*10^(-3); %set excitatory neuron first spike
-V_m(I_ind,280) = parameters.V_th + 1*10^(-3); %set inhibitory neuron first spike
-V_m(E_ind,285) = parameters.V_th + 1*10^(-3); %set excitatory neuron first spike
-V_m(I_ind,320) = parameters.V_th + 1*10^(-3); %set inhibitory neuron first spike
-V_m(E_ind,325) = parameters.V_th + 1*10^(-3); %set excitatory neuron first spike
-V_m(I_ind,360) = parameters.V_th + 1*10^(-3); %set inhibitory neuron first spike
-V_m(E_ind,365) = parameters.V_th + 1*10^(-3); %set excitatory neuron first spike
-V_m(I_ind,400) = parameters.V_th + 1*10^(-3); %set inhibitory neuron first spike
-V_m(E_ind,405) = parameters.V_th + 1*10^(-3); %set excitatory neuron first spike
-V_m(I_ind,440) = parameters.V_th + 1*10^(-3); %set inhibitory neuron first spike
-V_m(E_ind,445) = parameters.V_th + 1*10^(-3); %set excitatory neuron first spike
-V_m(I_ind,480) = parameters.V_th + 1*10^(-3); %set inhibitory neuron first spike
-V_m(E_ind,485) = parameters.V_th + 1*10^(-3); %set excitatory neuron first spike
-V_m(I_ind,520) = parameters.V_th + 1*10^(-3); %set inhibitory neuron first spike
-V_m(E_ind,525) = parameters.V_th + 1*10^(-3); %set excitatory neuron first spike
-V_m(I_ind,560) = parameters.V_th + 1*10^(-3); %set inhibitory neuron first spike
-V_m(E_ind,565) = parameters.V_th + 1*10^(-3); %set excitatory neuron first spike
-
+for t_i = 1:length(time_ind)
+    first_neur = randi(2);
+    jit_n = randi(5); %somewhat randomize the jitter of the second neuron spike
+    if first_neur == 1
+        V_m(I_ind,time_ind(t_i)) = parameters.V_th + 1*10^(-3); %set inhibitory neuron first spike
+        V_m(E_ind,time_ind(t_i) + jit_n) = parameters.V_th + 1*10^(-3); %set excitatory neuron first spike
+    else
+        V_m(E_ind,time_ind(t_i)) = parameters.V_th + 1*10^(-3); %set inhibitory neuron first spike
+        V_m(I_ind,time_ind(t_i) + jit_n) = parameters.V_th + 1*10^(-3); %set excitatory neuron first spike
+    end    
+end
 
 %Binary indices of excitatory and inhibitory neurons
 E_bin = zeros(parameters.n,1);
@@ -190,6 +205,20 @@ for t = 1:parameters.t_steps
     t_spike(spikers_bin) = t_curr; %update spike times
     spikers_I = spikers_bin.*I_bin; %binary column vector of spiking inhibitory neurons
     spikers_E = spikers_bin.*E_bin; %binary column vector of spiking excitatory neurons
+    %Update connection strengths with decay
+    if strcmp(parameters.stdp_type,'decay')
+        %Options: 'linear','exponential','gaussian'
+        if strcmp(parameters.decay_type,'linear')
+            conns(network.E_indices,:) = conns(network.E_indices,:) + -parameters.dt/parameters.tau_E_decay;
+            conns(network.I_indices,:) = conns(network.I_indices,:) + -parameters.dt/parameters.tau_I_decay;
+        elseif strcmp(parameters.decay_type,'exponential')    
+            conns(network.E_indices,:) = conns(network.E_indices,:)*exp(-parameters.dt/parameters.tau_E_decay);
+            conns(network.I_indices,:) = conns(network.I_indices,:)*exp(-parameters.dt/parameters.tau_I_decay);
+        elseif strcmp(parameters.decay_type,'gaussian')
+            conns(network.E_indices,:) = conns(network.E_indices,:)*exp(-5*(parameters.dt)^2/parameters.tau_E_decay);
+            conns(network.I_indices,:) = conns(network.I_indices,:)*exp(-5*(parameters.dt)^2/parameters.tau_I_decay);
+        end
+    end
     %______________________________________
     %Update which neurons spiked
     ever_spiked = t_spike > 0;
@@ -206,18 +235,22 @@ for t = 1:parameters.t_steps
     t_diff_pre_E = t_curr*pre_syn_n_E - pre_syn_t_E; %time diff between pre-synaptic excitatory neurons and current
     t_diff_pre_I = t_curr*pre_syn_n_I - pre_syn_t_I; %time diff between pre-synaptic inhibitory neurons and current
     t_diff_post = t_curr*post_syn_n - post_syn_t; %time diff between post-synaptic and current
-    
-    conn_strength_E_pre = (conns_max.*pre_syn_n_E - conns.*pre_syn_n_E)./(conns_max.*pre_syn_n_E);
-    conn_strength_E_pre(isnan(conn_strength_E_pre)) = 0;
-    conn_strength_I_pre = (conns_max.*pre_syn_n_I - conns.*pre_syn_n_I)./(conns_max.*pre_syn_n_I);
-    conn_strength_I_pre(isnan(conn_strength_I_pre)) = 0;
-    conn_strength_post = (conns_max.*post_syn_n - conns.*post_syn_n)./(conns_max.*post_syn_n);
-    conn_strength_post(isnan(conn_strength_post)) = 0;
-    
-    del_conn_pre_E = (pre_strength_E/100)*(conn_strength_E_pre).*exp(-t_diff_pre_E/t_stdp).*pre_syn_n_E;
-    del_conn_pre_I = (pre_strength_I/100)*(conn_strength_I_pre).*exp(-t_diff_pre_I/t_stdp).*pre_syn_n_I;
-    del_conn_post = (post_strength/100)*(conn_strength_post).*exp(-t_diff_post/t_stdp).*post_syn_n;
-    
+    if strcmp(parameters.stdp_type,'growth')
+        conn_strength_E_pre = (conns_max.*pre_syn_n_E - conns.*pre_syn_n_E)./(conns_max.*pre_syn_n_E);
+        conn_strength_E_pre(isnan(conn_strength_E_pre)) = 0;
+        conn_strength_I_pre = (conns_max.*pre_syn_n_I - conns.*pre_syn_n_I)./(conns_max.*pre_syn_n_I);
+        conn_strength_I_pre(isnan(conn_strength_I_pre)) = 0;
+        conn_strength_post = (conns_max.*post_syn_n - conns.*post_syn_n)./(conns_max.*post_syn_n);
+        conn_strength_post(isnan(conn_strength_post)) = 0;
+        del_conn_pre_E = (pre_strength_E/100)*(conn_strength_E_pre).*exp(-t_diff_pre_E/t_stdp).*pre_syn_n_E;
+        del_conn_pre_I = (pre_strength_I/100)*(conn_strength_I_pre).*exp(-t_diff_pre_I/t_stdp).*pre_syn_n_I;
+        del_conn_post = (post_strength/100)*(conn_strength_post).*exp(-t_diff_post/t_stdp).*post_syn_n;
+    elseif strcmp(parameters.stdp_type,'decay')
+        del_conn_pre_E = (pre_strength_E/100)*exp(-t_diff_pre_E/t_stdp).*pre_syn_n_E;
+        del_conn_pre_I = (pre_strength_I/100)*exp(-t_diff_pre_I/t_stdp).*pre_syn_n_I;
+        del_conn_post = (post_strength/100)*exp(-t_diff_post/t_stdp).*post_syn_n;
+    end
+    %Store changes
     conns_pre = conns;
     
     conns = conns + del_conn_pre_E + del_conn_pre_I - del_conn_post; %update connections
@@ -255,3 +288,4 @@ title('Connection Strength Change')
 xlabel('Time (s)')
 ylabel('Connection Strength Change')
 legend()
+linkaxes([ax1,ax2,ax3],'x')

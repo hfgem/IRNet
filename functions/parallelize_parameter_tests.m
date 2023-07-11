@@ -64,6 +64,7 @@ function [net_burst_results, test_burst_var] = parallelize_parameter_tests(param
                 catch %For older MATLAB versions or uninstalled audio package
                     pink_noise = dsp.ColoredNoise('Color','pink','NumChannels',parameters.n,'SamplesPerFrame',parameters.t_steps+1);
                     pink_noise_scaled = parameters.N_amp*(pink_noise()./max(pink_noise()));
+                    pink_noise_scaled = pink_noise_scaled';
                 end
                 G_in = pink_noise_scaled;
                 G_in(G_in<0) = 0;
@@ -82,9 +83,10 @@ function [net_burst_results, test_burst_var] = parallelize_parameter_tests(param
                 catch %For older MATLAB versions or uninstalled audio package
                     pink_noise = dsp.ColoredNoise('Color','pink','NumChannels',parameters.n,'SamplesPerFrame',parameters.t_steps+1);
                     pink_noise_scaled = parameters.N_amp*(pink_noise()./max(pink_noise()));
+                    pink_noise_scaled = pink_noise_scaled';
                 end
                 theta_wave = (parameters.t_amp/2)*sin(2*pi*parameters.t_freq*(parameters.dt*ones(parameters.n,parameters.t_steps+1).*(1:parameters.t_steps+1))) + parameters.t_amp/2;
-                G_in = theta_wave + (pink_noise_scaled)';
+                G_in = theta_wave + pink_noise_scaled;
                 G_in(G_in<0) = 0;
             end
             parameters.('G_in') = G_in;
@@ -123,7 +125,8 @@ function [net_burst_results, test_burst_var] = parallelize_parameter_tests(param
             
             %Calculate bursts
             bursts = burst_calculator(parameters,spikes_bin,net_save_path,ithNet,ithTest);
-            test_burst_var(ithTest).bursts = bursts;
+            test_index = parameters.nTrials*(ithNet-1) + ithTest;
+            test_burst_var(test_index).bursts = bursts;
             clear bursts
             
         end %end test loop
@@ -158,6 +161,16 @@ function [net_burst_results, test_burst_var] = parallelize_parameter_tests(param
         net_burst_results(ithNet).avg_ibi_of_bursts = avg_ibi_of_bursts;
         
     end 
+    
+    if length(net_burst_results) > 1
+        avg_avg_neur_per_burst = mean([net_burst_results.avg_neur_per_burst]);
+        avg_avg_length_of_burst = mean([net_burst_results.avg_length_of_burst]);
+        avg_avg_ibi_of_bursts = mean([net_burst_results.avg_ibi_of_bursts]);
+        net_burst_results = struct;
+        net_burst_results(1).avg_neur_per_burst = avg_avg_neur_per_burst;
+        net_burst_results(1).avg_length_of_burst = avg_avg_length_of_burst;
+        net_burst_results(1).avg_ibi_of_bursts = avg_avg_ibi_of_bursts;
+    end    
     
     disp(['Parameter set ', num2str(ithParamSet), '/', num2str(size(parameterSets_vec, 2)), ' complete'])
 
