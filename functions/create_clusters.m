@@ -10,17 +10,17 @@ function [network] = create_clusters(parameters, varargin)
     %       clusters = number of clusters of neurons
     %       cluster_n = number of neurons in a cluster
     %       cluster_prob = intra-cluster connection probability
-    %   seed = random number generator seed
-    %   include_all = binary value of whether to include all neurons in
-    %       clusters (1) or not (0).
-    %   global_inhib = binary value of whether to include a global
-    %       inhibition to the connectivity matrix.
+    %   varargin = 
     %OUTPUTS:
-    %   cluster_mat = A binary [clusters x n] matrix of which neurons are in
-    %                 which cluster
-    %   conns = An [n x n] matrix of which neurons are connected to each
-    %                 other, with values greater than 1 implying stronger
-    %                 connectivity
+    %   network = a structure containing network connectivity information
+    %       cluster_mat = binary matrix with # clusters rows and # neurons
+    %           columns denoting which neuron is in which cluster
+    %       conns = an nxn matrix with connection strengths
+    %       seed = random number generator seed used to generate network
+    %       n_EE/n_EI/n_IE/n_II = numbers of connections
+    %       all_indices = 1:n list
+    %       I_indices = indices in 1:n that represent inhibitory neurons
+    %       E_indices = indices in 1:n that represent excitatory neurons
     %_________
 
         
