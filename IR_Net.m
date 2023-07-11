@@ -187,7 +187,6 @@ for ithNet = 1:parameters.nNets
             catch %For older MATLAB versions or uninstalled audio package
                 pink_noise = dsp.ColoredNoise('Color','pink','NumChannels',parameters.n,'SamplesPerFrame',parameters.t_steps+1);
                 pink_noise_scaled = parameters.N_amp*(pink_noise()./max(pink_noise()));
-                pink_noise_scaled = pink_noise_scaled';
             end
             G_in = pink_noise_scaled;
             G_in(G_in<0) = 0;
@@ -206,10 +205,9 @@ for ithNet = 1:parameters.nNets
             catch %For older MATLAB versions or uninstalled audio package
                 pink_noise = dsp.ColoredNoise('Color','pink','NumChannels',parameters.n,'SamplesPerFrame',parameters.t_steps+1);
                 pink_noise_scaled = parameters.N_amp*(pink_noise()./max(pink_noise()));
-                pink_noise_scaled = pink_noise_scaled';
             end
             theta_wave = (parameters.t_amp/2)*sin(2*pi*parameters.t_freq*(parameters.dt*ones(parameters.n,parameters.t_steps+1).*(1:parameters.t_steps+1))) + parameters.t_amp/2;
-            G_in = theta_wave + pink_noise_scaled;
+            G_in = theta_wave + (pink_noise_scaled)';
             G_in(G_in<0) = 0;
         end
         parameters.('G_in') = G_in;
