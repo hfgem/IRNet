@@ -127,6 +127,10 @@ parameters.burst_t_min = 10*10^(-3); %Seconds that must pass without activity to
 parameters.num_burst_avg = 5; %Number of bursts to average together for visualizations
 parameters.num_rast_to_plot = 25; %Number of burst rasters to plot
 
+%Set conductance test parameters
+parameters.pre_spike = 1; %Seconds before spike to visualize conductance inputs
+parameters.post_spike = 0.5; %Seconds after spike to visualize conductance inputs
+
 % Number of trials per net to run
 parameters.nTrials = 1; % How many tests of different initializations to run
 parameters.nNets = 1; % How many networks to run
