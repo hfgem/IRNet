@@ -127,6 +127,10 @@ parameters.burst_t_min = 10*10^(-3); %Seconds that must pass without activity to
 parameters.num_burst_avg = 5; %Number of bursts to average together for visualizations
 parameters.num_rast_to_plot = 25; %Number of burst rasters to plot
 
+%Set conductance test parameters
+parameters.pre_spike = 1; %Seconds before spike to visualize conductance inputs
+parameters.post_spike = 0.5; %Seconds after spike to visualize conductance inputs
+
 % Number of trials per net to run
 parameters.nTrials = 1; % How many tests of different initializations to run
 parameters.nNets = 1; % How many networks to run
@@ -239,6 +243,10 @@ for ithNet = 1:parameters.nNets
             G_var(ithTest).G_syn_E_E = G_syn_E_E;
             G_var(ithTest).G_syn_I_I = G_syn_I_I;
             G_var(ithTest).G_syn_E_I = G_syn_E_I;
+            %Calculate conductance changes
+            neur_conductances = pre_spike_conductance_changes(...
+                parameters, network, V_m, G_syn_E_E, G_syn_I_E, G_syn_E_I, G_syn_I_I);
+            %Clear unnecessary variables
             clear V_m G_sra G_syn_E_E G_syn_I_E G_syn_E_I G_syn_I_I G_in
             spikes_bin = V_m > parameters.V_th;
             %conns_var(ithTest).conns = conns;

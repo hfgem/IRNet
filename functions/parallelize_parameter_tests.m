@@ -118,6 +118,9 @@ function [net_burst_results, test_burst_var] = parallelize_parameter_tests(param
                 G_var(ithTest).G_syn_E_E = G_syn_E_E;
                 G_var(ithTest).G_syn_I_I = G_syn_I_I;
                 G_var(ithTest).G_syn_E_I = G_syn_E_I;
+                %Calculate conductance changes
+                neur_conductances = pre_spike_conductance_changes(...
+                    parameters, network, V_m, G_syn_E_E, G_syn_I_E, G_syn_E_I, G_syn_I_I);
                 clear V_m G_sra G_syn_E_E G_syn_I_E G_syn_E_I G_syn_I_I G_in
                 spikes_bin = V_m > parameters.V_th;
                 %conns_var(ithTest).conns = conns;
