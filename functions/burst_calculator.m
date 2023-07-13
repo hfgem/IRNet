@@ -16,10 +16,12 @@ function bursts = burst_calculator(parameters,spike_raster,net_save_path,ithNet,
         times = [spikes_exist(start_ind),spikes_exist(large_diff(d_ind))];
         raster = spike_raster(:,times(1):times(2));
         num_neur = sum(sum(raster,2) > 0);
+        avg_spike_per_neur = mean(sum(raster,2));
         if num_neur > parameters.burst_n_min*parameters.n
             bursts(end+1).times = times; %#ok<*AGROW>
             bursts(end).raster = raster;
             bursts(end).num_neur = num_neur;
+            bursts(end).avg_spike_per_neur = avg_spike_per_neur;
             bursts(end).length = parameters.dt*(bursts(end).times(2) - bursts(end).times(1));
             try
                 bursts(end).ibi = (bursts(end).times(1) - bursts(end-1).times(2))*parameters.dt; %Time since last burst in seconds
