@@ -130,25 +130,31 @@ for p_i = 1:num_param_sets
 end    
 save(strcat(parameters.save_path,'/good_params.mat'),'good_params','-v7.3'); 
 
-%Display/save which ranges are good
-range_file = strcat(parameters.save_path,'/ranges.txt');
-varnames = {'Parameter','Minimum','Maximum'};
-vartypes = {'string','double','double'};
-sz = [size(variedParam,2),3];
-range_table = table('Size',sz,'VariableTypes',vartypes,'VariableNames',varnames);
-for v_i = 1:size(variedParam,2)
-    min_val = min(good_params(:,v_i));
-    max_val = max(good_params(:,v_i));
-    param_name = replace(variedParam(v_i).name,'_',' ');
-    range_table(v_i,:) = {param_name,min_val,max_val};
-    string_range = strcat(param_name,' good range: [',...
-        string(min_val),',',string(max_val),'].');
-    disp(string_range)
+if ~isempty(good_params)
+    %Display/save which ranges are good
+    range_file = strcat(parameters.save_path,'/ranges.txt');
+    varnames = {'Parameter','Minimum','Maximum'};
+    vartypes = {'string','double','double'};
+    sz = [size(variedParam,2),3];
+    range_table = table('Size',sz,'VariableTypes',vartypes,'VariableNames',varnames);
+    for v_i = 1:size(variedParam,2)
+        min_val = min(good_params(:,v_i));
+        max_val = max(good_params(:,v_i));
+        param_name = replace(variedParam(v_i).name,'_',' ');
+        range_table(v_i,:) = {param_name,min_val,max_val};
+        string_range = strcat(param_name,' good range: [',...
+            string(min_val),',',string(max_val),'].');
+        disp(string_range)
+    end
+    writetable(range_table,range_file)
+else
+    disp('No Good Params.')
 end
-writetable(range_table,range_file)
-%% Plot Burst Stats
 
-plot_param_test_results(parameters,variedParam,parameterSets_vec,netresults)
+%% Plot Burst Stats
+disp('Now plotting parameter testing results')
+plot_param_test_results(parameters,variedParam,parameterSets_vec,netresults);
+disp('Plotting complete')
 
 %% Functions 
 function p = nUpdateWaitbar(data, h)

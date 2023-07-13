@@ -48,7 +48,7 @@ for p_i = 1:size(pairs,1)
     s1 = subplot(3,2,1);
     imagesc(flipud(avg_neur_per_burst_results_mat))
     c1 = colorbar();
-    caxis([0,parameters.n])
+    caxis([0,parameters.n]);
     c1.Label.String = 'Avg Number of Neurons';
     yticks(1:parameters.test_n)
     yticklabels(fliplr([variedParam(pair_ind_1).range]))
@@ -63,7 +63,7 @@ for p_i = 1:size(pairs,1)
     bin_good_neur_count = avg_neur_per_burst_results_mat >= parameters.min_n_burst;
     imagesc(flipud(bin_good_neur_count))
     c2 = colorbar('Ticks',[0,1],'TickLabels',{'Bad','Good'});
-    caxis([0,1])
+    caxis([0,1]);
     c2.Label.String = 'Good Number of Neurons';
     yticks(1:parameters.test_n)
     yticklabels(fliplr([variedParam(pair_ind_1).range]))
@@ -77,7 +77,7 @@ for p_i = 1:size(pairs,1)
     s3 = subplot(3,2,3);
     imagesc(flipud(avg_length_of_burst_results_mat))
     c3 = colorbar();
-    caxis([0,max(avg_length_of_burst_results_mat,[],'all')])
+    caxis([0,max(avg_length_of_burst_results_mat,[],'all')]);
     c3.Label.String = 'Avg Length of Burst (s)';
     yticks(1:parameters.test_n)
     yticklabels(fliplr([variedParam(pair_ind_1).range]))
@@ -92,7 +92,7 @@ for p_i = 1:size(pairs,1)
     bin_good_burst_len = (avg_length_of_burst_results_mat >= parameters.min_burst_len) .* (avg_length_of_burst_results_mat <= parameters.max_burst_len);
     imagesc(flipud(bin_good_burst_len))
     c4 = colorbar('Ticks',[0,1],'TickLabels',{'Bad','Good'});
-    caxis([0,1])
+    caxis([0,1]);
     c4.Label.String = 'Good Length of Burst';
     yticks(1:parameters.test_n)
     yticklabels(fliplr([variedParam(pair_ind_1).range]))
@@ -106,7 +106,7 @@ for p_i = 1:size(pairs,1)
     s5 = subplot(3,2,5);
     imagesc(flipud(avg_ibi_of_burst_results_mat))
     c5 = colorbar();
-    caxis([0,max(avg_ibi_of_burst_results_mat,[],'all')])
+    caxis([0,max(avg_ibi_of_burst_results_mat,[],'all')]);
     c5.Label.String = 'Avg IBI (s)';
     yticks(1:parameters.test_n)
     yticklabels(fliplr([variedParam(pair_ind_1).range]))
@@ -121,7 +121,7 @@ for p_i = 1:size(pairs,1)
     bin_good_ibi = avg_ibi_of_burst_results_mat >= parameters.min_ibi;
     imagesc(flipud(bin_good_ibi))
     c6 = colorbar('Ticks',[0,1],'TickLabels',{'Bad','Good'});
-    caxis([0,1])
+    caxis([0,1]);
     c6.Label.String = 'Good Parameters for IBI';
     yticks(1:parameters.test_n)
     yticklabels(fliplr([variedParam(pair_ind_1).range]))
