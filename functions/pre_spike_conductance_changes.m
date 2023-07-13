@@ -67,5 +67,4 @@ function [neur_conductances] = pre_spike_conductance_changes(...
         plot_pre_spike_conductance_changes(parameters, neur_conductances)
     end    
     
-
 end
